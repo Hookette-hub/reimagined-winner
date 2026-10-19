@@ -405,3 +405,7 @@ body.pousse #view{animation:pousse .26s cubic-bezier(.2,.7,.3,1) both}
 }
 .rep.seul{background:var(--surface);border:1px solid var(--border);border-radius:15px}.rep.seul .body{padding:0 18px 16px}
 html{scroll-padding-top:calc(64px + env(safe-area-inset-top,0px));scroll-padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.wrap > h3.sec{margin-top:24px!important;margin-bottom:-4px}
+.stepbig div{overflow-wrap:anywhere;min-width:0}
+@media (max-width:540px){.stepbig div{font-size:0;gap:0}.stepbig div span{font-size:12px}.stepbig .now{font-size:11px;gap:6px;white-space:nowrap}}
+.pill.np::before{display:none}

@@ -234,7 +234,7 @@ def test_boutons_qui_ecrivent(pw, navigateur, serveur):
     # 1. Message dans « Parler de ce projet »
     page.evaluate("location.hash = 'projets.TEST-P900.messages'")
     page.fill("#cm", "Peux-tu résumer l'étude ?")
-    page.click("form[data-proj] button")
+    page.click("form[data-sujet] button")
     page.wait_for_selector("text=Message envoyé")
     assert ecr[-1]["methode"] == "POST" and ecr[-1]["plage"].startswith("'Parler à l''Usine'")
     assert ecr[-1]["valeurs"][0][1] == "Peux-tu résumer l'étude ? (projet TEST-P900, Projet Exemple)"
@@ -313,6 +313,14 @@ def test_boutons_qui_ecrivent(pw, navigateur, serveur):
     page.click("form[data-budget] button")
     page.wait_for_selector("text=budget IA de 2,00 $ par jour")
     assert ecr[-1]["valeurs"][0][1] == "Change le budget IA par jour : 2 $"
+
+    # 8. Chaque page a son chat : celui d'un agent, et celui d'une décision
+    page.evaluate("location.hash = 'equipe.veille_strategie'")
+    page.fill("#cm", "Que cherches-tu cette semaine ?")
+    page.click("form[data-sujet] button")
+    page.wait_for_selector("text=Message envoyé")
+    assert ecr[-1]["valeurs"][0][1] == "Que cherches-tu cette semaine ? (agent « Veille & Stratégie »)"
+    page.wait_for_selector("#thread >> text=Que cherches-tu cette semaine ?")  # il apparaît dans le chat de l'agent
     assert not page.erreurs, page.erreurs
     ctx.close()
 
@@ -454,7 +462,7 @@ def test_la_machine_et_les_reglages(pw, navigateur, serveur):
     ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
     page.goto(serveur + "/")
     page.click("#view button[data-mode=sim] >> nth=0")
-    for tuile, titre in (("equipe", "Mon équipe"), ("biblio", "La Bibliothèque"), ("securite", "Tout est vert"), ("reglages", "Données affichées")):
+    for tuile, titre in (("equipe", "Le Superviseur"), ("biblio", "La Bibliothèque"), ("securite", "Tout est vert"), ("reglages", "Données affichées")):
         page.click(f".mtile[href='#{tuile}']")
         page.wait_for_selector(f"#view >> text={titre}")
         page.click("#navbar .back")
@@ -484,6 +492,35 @@ def test_notifications_app_fermee_sans_relais(pw, navigateur, serveur):
     page.evaluate("location.hash = 'reglages'")
     page.click("#notif-push")
     page.wait_for_selector("text=Le relais n'est pas encore en ligne")
+    ctx.close()
+
+
+def test_projet_bibliotheque_agents_en_detail(pw, navigateur, serveur):
+    """Chaque page : je vois (avancement, construction, qui fait, résultat, déroulement), je contrôle, son chat."""
+    ctx, page = ouvrir(pw, navigateur, serveur, "Pixel 7")
+    page.goto(serveur + "/")
+    page.click("#view button[data-mode=sim] >> nth=0")
+    page.evaluate("location.hash = 'projets.P001'")
+    texte = page.inner_text("#view")
+    for mot in ("Avancement", "En construction", "Qui le fait", "Résultat", "Déroulement", "Je contrôle", "Parler de ce projet", "MESURÉ"):
+        assert mot.lower() in texte.lower(), mot
+    page.fill("#cm", "Où en est PDF Sans Fuite ?")
+    page.click("form[data-sujet] button")
+    page.wait_for_selector("#thread >> text=étape « Rentable »")
+    page.evaluate("location.hash = 'biblio'")
+    texte = page.inner_text("#view")
+    for mot in ("La porte", "L'aile manuelle", "L'aile système", "🟢", "Ajouter une vidéo"):
+        assert mot.lower() in texte.lower(), mot
+    page.click("button[data-ordre='Change, valide la fiche S3']")
+    page.click("button[data-ordre='Change, valide la fiche S3']")
+    page.wait_for_selector("text=entre dans la Bibliothèque")
+    page.evaluate("location.hash = 'equipe'")
+    assert "Le Superviseur" in page.inner_text("#view")
+    page.evaluate("location.hash = 'equipe.sami'")
+    texte = page.inner_text("#view")
+    for mot in ("Son métier", "Avancement", "Sa note", "🟡", "Mettre en pause", "Parler avec Sami"):
+        assert mot.lower() in texte.lower(), mot
+    assert not page.erreurs, page.erreurs
     ctx.close()
 
 

@@ -250,7 +250,7 @@ function construireReel(){
       niveau: d.niveau || "gratuit", niveauDepuis: d.niveau_depuis || "", remplacant: d.remplacant_demande || "", depuis: d.depuis || "",
       etat: ligne ? ligne["État"] : "", dernierPassage: ligne ? ligne.Date : "", executions: ex ? +ex[1] : null, echecs: ex ? +ex[2] : null, enAttente: ex ? +ex[3] : null,
       taches: serie(am, cle, "taches"), qualite: serie(am, cle, "qualite"), cout: serie(am, cle, "cout_usd"), passages: serie(am, cle, "passages"),
-      examens, noteActuelle: q ? nombre(q["État"]) : null, alertes: alertes.filter(a => a["Détail"].startsWith(cle + " ")).map(a => a["Détail"].replace(/^\S+ : /, "")), travail: [], histoire: []};
+      examens, noteActuelle: q ? nombre(q["État"]) : null, noteSup: noteSupDe(etR("Note des agents").find(r => r.Nom === cle || r.Nom === poste || r.Nom === (d.prenom || def[1]))), alertes: alertes.filter(a => a["Détail"].startsWith(cle + " ")).map(a => a["Détail"].replace(/^\S+ : /, "")), travail: [], histoire: []};
   });
   const parCle = Object.fromEntries(agents.map(a => [a.id, a])), parPoste = Object.fromEntries(agents.map(a => [a.poste, a]));
 
@@ -330,12 +330,18 @@ function construireReel(){
 
   /* Bibliothèque */
   const fiches = R("bi").filter(f => f.ID).map(f => ({id: f.ID, titre: f.Titre, rayon: f.Domaine || "Autres", livre: f["Étape du processus"] || "Toutes", version: f.Version, statut: col(f, "Statut"), preuve: col(f, "Niveau de preuve"),
-    agents: f["Agents qui l'utilisent"], types: f["Types de projets"], lien: f.Lien, revision: f["Dernière révision"], applications: f["Nb d'applications"], reussite: f["Taux de réussite"], notes: f.Notes,
+    aile: aileDe(f.Notes, f.Domaine), agents: f["Agents qui l'utilisent"], types: f["Types de projets"], lien: f.Lien, revision: f["Dernière révision"], applications: f["Nb d'applications"], reussite: f["Taux de réussite"], notes: f.Notes,
     projets: [...new Set(R("ap").filter(a => a["Fiche (ID)"] === f.ID).map(a => a["Projet (ID)"]))].map(nomP)}));
   const lacunes = R("la").map(l => ({quoi: propre(l.Quoi), pourquoi: propre(l.Pourquoi), prudence: propre(col(l, "Option prudente")), statut: col(l, "Statut"), bloquante: /oui/i.test(col(l, "Bloquante")), date: l.Date, qui: l.Agent}));
   const idees = R("id").map(i => ({titre: i.Titre, type: (i.Type || "").replace(" / outil en ligne", ""), decision: col(i, "Décision"), note: i["Note /35"], confiance: nombre(i["Confiance (%)"]), date: i.Date, source: col(i, "Source"), lien: i["Lien du document"], statut: i.Statut, description: i.Description}));
   const ilYa7 = iso(new Date(dateD(jour).getTime() - 7 * 864e5));
   const semaine = fiches.filter(f => /valid/i.test(f.statut) && f.revision >= ilYa7 && /directeur g[ée]n[ée]ral/i.test(f.notes || ""));
+
+  /* Le Superviseur (rubrique écrite par le moteur quand elle existe) */
+  const sup = etR("Superviseur"), verite = sup.find(r => r.Nom === "La vérité du jour");
+  const superviseur = verite ? {etat: verite["État"], detail: propre(verite["Détail"]), date: verite.Date,
+    anomalies: sup.filter(r => /^Anormal/.test(r.Nom)).map(r => propre(`${r.Nom.replace(/^Anormal : /, "")} : ${r["Détail"]}`)),
+    bloques: sup.filter(r => /^Bloque/.test(r.Nom)).map(r => propre(`${r.Nom.replace(/^Bloque : /, "")} : ${r["État"]}`))} : null;
 
   /* L'Usine (les coulisses) */
   const usine = {
@@ -344,10 +350,14 @@ function construireReel(){
     calendrier: etR("Calendrier").map(c => ({jour: c["Détail"], date: c.Date, agents: c.Nom.split(",").map(x => x.trim()).filter(Boolean)})),
     pret: etR("Prêt pour le réel"), veille: etR("Veille concurrentielle"), alertes,
   };
-  return {mode: "reel", jour, agents, parCle, parPoste, projets, parId, decisions, fil, messages,
+  return {mode: "reel", jour, agents, parCle, parPoste, projets, parId, decisions, fil, messages, superviseur,
     argent: {ia: nombre(ia["État"]), iaPlafond: ia["Détail"] || "", dep: nombre(dp["État"]), depPlafond: dp["Détail"] || "", objectif: objTxt, planDetail: plan["Détail"] || "", coutIA, depenses},
     biblio: {fiches, lacunes, idees, semaine}, usine, qgAbsent: !qg.length};
 }
+/* Note du Superviseur sur un agent : 🟢 / 🟡 / 🔴 et une phrase. */
+function noteSupDe(r){ if (!r) return null; const e = (/(🟢|🟡|🔴)/.exec(r["État"] || "") || [])[1] || ""; return {emoji: e, etat: String(r["État"] || "").replace(/(🟢|🟡|🔴)\s*/, ""), detail: propre(r["Détail"] || "")}; }
+/* L'aile manuelle : ce que le Président apporte (vidéos, documents déposés) ; l'aile système : ce que l'Usine crée seule. */
+const aileDe = (notes, domaine) => /vid[ée]o|youtube|pr[ée]sident|d[ée]pos|apport|manuel|À intégrer/i.test(String(notes || "") + " " + String(domaine || "")) ? "manuelle" : "systeme";
 /* Remplace le jargon par des mots simples : numéros de tâche, numéros de mission, adresses, noms de code des agents. */
 function propre(s){
   let t = String(s || "");
@@ -418,15 +428,19 @@ function construireSim(){
     A("lina","Lina","Analyste","gratuit","nov. 2025","Chiffres, rapports, tests A/B.",[2,2,3,3,4,4,4,4,4,4,4,4],[90,91,92,92,93,93,94,94,95,95,95,95],[0,0,0,0,0,0,0,0,0,0,0,0.18],["a écrit le bilan d'octobre : +23 % de revenus"],[["done","nov. 2025","Embauchée",""]]),
     A("hamza","Hamza","Maintenance","gratuit","nov. 2025","Contrôles, sauvegardes, secours.",[30,31,31,28,31,30,31,31,30,31,30,31],[97,97,98,98,98,99,99,99,99,99,99,99],[0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05],["a fait 31 contrôles","a réglé seul 3 pannes"],[["done","nov. 2025","Embauché",""]]),
   ];
-  agents.forEach(a => { const p = PERSO[a.id] || {}; if (p.prenom) a.prenom = p.prenom; if (p.niveau) a.niveau = p.niveau; });
+  agents.forEach(a => { const p = PERSO[a.id] || {}; if (p.prenom) a.prenom = p.prenom; if (p.niveau) a.niveau = p.niveau;
+    const q = dernier(a.qualite); a.noteSup = {emoji: q >= 85 ? "🟢" : q >= 75 ? "🟡" : "🔴", etat: q >= 85 ? "Très bien" : q >= 75 ? "Correct" : "À surveiller", detail: q < 80 ? "qualité sous 80 depuis plusieurs mois, à améliorer ?" : ""}; });
   const fil = [["omar","a lancé la formule « Équipe » de PDF Sans Fuite","2026-10-14"],["mehdi","a terminé l'aperçu de Juste Prix Freelance","2026-10-16"],["omar","a fini l'étude de Feuilles Pro Arabe","2026-10-17"],["lina","a écrit le bilan d'octobre : +23 % de revenus","2026-10-17"]].map(([agent, texte, date]) => ({agent, texte, date})).reverse();
   const totCost = MOIS.map((_, i) => sum(projets.map(p => p.couts[i])));
   const fiches = [
-    {id:"S1", titre:"Vérifier la concurrence gratuite avant de construire", rayon:"Fondations", livre:"Validation", version:"v2", statut:"VALIDÉE", preuve:"A", agents:"Veille & Stratégie", types:"Tous", lien:"", revision:"2026-10-15", applications:"6", reussite:"83 %", notes:"Validée par le Directeur général", projets:["PDF Sans Fuite","Juste Prix Freelance"]},
-    {id:"S2", titre:"Écrire une page de prix claire", rayon:"SaaS & Produit", livre:"Préparation", version:"v1", statut:"VALIDÉE", preuve:"B", agents:"Chef de produit", types:"SaaS", lien:"", revision:"2026-09-02", applications:"3", reussite:"67 %", notes:"", projets:["PDF Sans Fuite"]},
-    {id:"S3", titre:"Épingles Pinterest de saison", rayon:"Croissance", livre:"Croissance", version:"v1", statut:"PROPOSITION", preuve:"C", agents:"Marketing", types:"Produit numérique", lien:"", revision:"2026-10-10", applications:"1", reussite:"", notes:"", projets:["Planner crochet"]},
+    {id:"S1", aile:"systeme", titre:"Vérifier la concurrence gratuite avant de construire", rayon:"Fondations", livre:"Validation", version:"v2", statut:"VALIDÉE", preuve:"A", agents:"Veille & Stratégie", types:"Tous", lien:"", revision:"2026-10-15", applications:"6", reussite:"83 %", notes:"Validée par le Directeur général", projets:["PDF Sans Fuite","Juste Prix Freelance"]},
+    {id:"S2", aile:"manuelle", titre:"Écrire une page de prix claire", rayon:"SaaS & Produit", livre:"Préparation", version:"v1", statut:"VALIDÉE", preuve:"B", agents:"Chef de produit", types:"SaaS", lien:"", revision:"2026-09-02", applications:"3", reussite:"67 %", notes:"Apportée par vous (vidéo sur les pages de prix)", projets:["PDF Sans Fuite"]},
+    {id:"S4", aile:"systeme", titre:"Relire chaque livrable avant de le montrer", rayon:"Fondations", livre:"Toutes", version:"v3", statut:"VALIDÉE", preuve:"A", agents:"Contrôle qualité", types:"Tous", lien:"", revision:"2026-08-20", applications:"14", reussite:"93 %", notes:"", projets:["PDF Sans Fuite","Planner crochet","Tatoo Idées"]},
+    {id:"S5", aile:"systeme", titre:"Publier 3 articles par semaine pendant le test", rayon:"Croissance", livre:"Croissance", version:"v1", statut:"VALIDÉE", preuve:"B", agents:"Contenu", types:"Blog", lien:"", revision:"2026-07-02", applications:"2", reussite:"35 %", notes:"", projets:["Tatoo Idées"]},
+    {id:"S3", aile:"manuelle", titre:"Épingles Pinterest de saison", rayon:"Croissance", livre:"Croissance", version:"v1", statut:"PROPOSITION", preuve:"C", agents:"Marketing", types:"Produit numérique", lien:"", revision:"2026-10-10", applications:"1", reussite:"", notes:"", projets:["Planner crochet"]},
   ];
   return {mode: "sim", jour: "2026-10-18", agents, parCle: Object.fromEntries(agents.map(a => [a.id, a])), projets, parId: Object.fromEntries(projets.map(p => [p.id, p])), decisions, fil, messages: [],
+    superviseur: {etat: "🟢 Tout tourne", detail: "Aucune anomalie aujourd'hui. Sami reste sous 80 de qualité depuis 9 mois : à vous de voir s'il faut l'améliorer.", date: "2026-10-18", anomalies: [], bloques: []},
     argent: {ia: 3.65, iaPlafond: "Plafond : 2,68 $ par jour", dep: totCost[11], depPlafond: "Plafond : 20 € par mois, rien sans votre accord", objectif: "1 000 € de bénéfice par mois en avril 2027.", sim: true,
       coutIA: MOIS.map((_, i) => sum(agents.map(a => a.cout[i]))), depenses: [{date:"2026-10-02", projet:"P001", montant:12, objet:"Hébergement", mois:"2026-10"},{date:"2026-09-12", projet:"P002", montant:10, objet:"Nom de domaine", mois:"2026-09"}]},
     biblio: {fiches, lacunes: [{quoi:"Pas de fiche sur les partenariats avec des blogs", pourquoi:"Sami en a besoin pour PDF Sans Fuite", prudence:"Il avance avec les règles de base en attendant", statut:"Ouverte", bloquante:false, date:"2026-10-12", qui:"sami"}],
@@ -484,28 +498,37 @@ const VUES = {
           <span class="pill ${st[1]}">${esc(st[0])}</span><span class="go">›</span></a>`; }).join("")}</div>` : vide("Pas encore de projet : la Veille cherche des idées. Elles sont dans la Boîte à idées de la Bibliothèque.")}`};
   },
   projet(p){
-    const rev = sum(p.revenus), cost = sum(p.couts), b = rev - cost, now = p.plan.find(x => x[0] === "now"), st = statutPill(p);
-    const vis = dernier(p.visiteurs), re = dernier(p.revenus), pm = p.decisions[0];
+    const rev = sum(p.revenus), cost = sum(p.couts), now = p.plan.find(x => x[0] === "now"), st = statutPill(p), pm = p.decisions[0];
+    const vis = dernier(p.visiteurs), re = dernier(p.revenus), r = p.rentab;
+    const quiCle = QUI_ETAPE[p.etape], qui = p.decisions.length || p.etape === 2 ? null : (quiCle && (M.parCle[quiCle] || null));
+    const quiTxt = p.arrete ? "Personne : le projet est arrêté." : !qui ? "Vous : l'équipe attend votre décision." : `${qui.prenom} (${posteCourt(qui.poste)})${now && now[3] ? " · " + now[3] : ""}`;
+    const fait = p.plan.filter(x => x[0] === "done").slice(-3);
     return { crumbs: [["Mes projets", "projets"], [p.nom]], html: `
-      <div class="card" style="display:flex;flex-direction:column;gap:18px"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div style="min-width:0"><h1>${esc(p.nom)}</h1><p class="lead">${esc(p.concept || p.phrase)}</p></div><span class="pill ${st[1]}">${esc(st[0])}</span></div>${stepsBig(p.etape, p.arrete)}</div>
-      ${pm ? `<div class="decide"><div><b>À vous de décider</b><div style="opacity:.9">${esc(pm.titre)}</div></div><a class="btn" href="#projets.${esc(p.id)}.decision">Lire le résumé et décider</a></div>` : ""}
-      <div class="mini">
-        <div class="kpi"><div class="k">Visiteurs du mois</div>${vis != null ? `<div class="v">${vis.toLocaleString("fr-FR")}</div>${tendance(p.visiteurs)}${spark(p.visiteurs)}` : `<div class="v txt">Pas encore</div><span class="sub">${pasDeVisiteurs(p)}</span>`}</div>
-        <div class="kpi"><div class="k">Revenus du mois</div>${re != null ? `<div class="v">${eur(re)}</div>${tendance(p.revenus)}${spark(p.revenus)}` : `<div class="v txt">Pas encore</div><span class="sub">${pasDeRevenus(p)}</span>`}</div>
-        <div class="kpi"><div class="k">Dépensé depuis le début</div><div class="v ${cost ? "down" : ""}">${eur(cost)}</div>${tendance(p.couts, true)}${spark(p.couts, "var(--cost)")}</div>
-      </div>
-      <div class="tiles">
-        ${tile(`projets.${p.id}.plan`, "plan", "Le plan", now ? `En cours : ${now[2]}` : "Toutes les étapes")}
-        ${tile(`projets.${p.id}.evolution`, "evol", "Évolution et rentabilité", rev || cost ? `Bénéfice : ${signe(b)}` : p.rentab && p.rentab.r12 != null ? `Prévu : ${eur(p.rentab.r12)} sur 12 mois` : "Les courbes sur 12 mois")}
-        ${tile(`projets.${p.id}.rapports`, "rapports", "Rapports", p.rapports.length ? `${p.rapports.length} rapport${p.rapports.length > 1 ? "s" : ""}${p.rapports[0].date ? " · dernier le " + fmtD(p.rapports[0].date) : ""}` : "Pas encore de rapport")}
-        ${tile(`projets.${p.id}.messages`, "messages", "Parler de ce projet", p.messages.length ? `${p.messages.length} message${p.messages.length > 1 ? "s" : ""}` : "Poser une question, donner un ordre")}
-        ${tile(`projets.${p.id}.livrables`, "travail", "Livrables", `${p.livrables.length} document${p.livrables.length > 1 ? "s" : ""} : étude, cahier des charges, identité…`)}
+      <div><div class="kicker">${esc(p.type || "Projet")}</div><h1>${esc(p.nom)}</h1><p class="lead">${esc(p.concept || p.phrase)}</p><div style="margin-top:8px"><span class="pill ${st[1]}">${esc(st[0])}</span></div></div>
+      ${pm ? `<a class="card dec2" href="#projets.${esc(p.id)}.decision" style="text-decoration:none;color:inherit;display:block"><div class="meta"><span class="d"></span>À vous de décider</div><h2 class="q">${esc(pm.titre)}</h2><p class="why">Lire l'analyse et choisir en 2 touchers ›</p></a>` : ""}
+      <div>${sec("Avancement", `étape ${Math.min(p.etape + 1, ETAPES.length)} sur ${ETAPES.length}`)}${stepsBig(p.etape, p.arrete)}</div>
+      <div class="card stack"><div>${sec("En construction")}<p style="margin:0;font-weight:600">${esc(p.arrete ? "Rien : projet arrêté." : now ? now[2] : ETAPES[p.etape])}</p></div>
+        <div>${sec("Qui le fait")}<p style="margin:0">${qui ? `<a href="#equipe.${esc(qui.id)}">${esc(quiTxt)}</a>` : esc(quiTxt)}</p></div></div>
+      <div>${sec("Résultat", enLigne(p) ? "chiffres mesurés" : "rien n'est encore en vente")}
+        <div class="costgrid">
+          <div><span class="cl">Visiteurs du mois ${mesure(true)}</span><span class="cv">${vis != null ? vis.toLocaleString("fr-FR") : "0"}</span><span class="cn">${vis != null ? "" : esc(pasDeVisiteurs(p))}</span></div>
+          <div><span class="cl">Revenus du mois ${mesure(true)}</span><span class="cv">${eur(re || 0)}</span><span class="cn">${re ? "" : esc(pasDeRevenus(p))}</span></div>
+          <div><span class="cl">Dépensé depuis le début ${mesure(true)}</span><span class="cv">${eur(cost)}</span></div>
+          ${r && r.b12 != null ? `<div><span class="cl">Bénéfice sur 12 mois ${mesure(false)}</span><span class="cv">${signe(r.b12)}</span><span class="cn">${r.pm != null ? `équilibre au mois ${r.pm}` : ""}</span></div>` : ""}
+        </div></div>
+      <div>${sec("Déroulement")}<div class="card"><ul class="tl">${fait.concat(p.plan.filter(x => x[0] !== "done").slice(0, 2)).map(([s, d, t, x]) => `<li class="${s}"><span class="d">${esc(d)}</span><b>${esc(t)}</b>${x ? `<span class="sub">${esc(x)}</span>` : ""}</li>`).join("")}</ul>
+        <a class="open-link" href="#projets.${esc(p.id)}.plan" style="margin-top:10px">Tout le déroulement ›</a></div></div>
+      <div class="rows">
+        ${tile(`projets.${p.id}.evolution`, "evol", "Évolution et rentabilité", rev || cost ? `Bénéfice : ${signe(rev - cost)}` : r && r.r12 != null ? `Prévu : ${eur(r.r12)} sur 12 mois` : "Les courbes sur 12 mois")}
+        ${tile(`projets.${p.id}.rapports`, "rapports", "Rapports", p.rapports.length ? pluriel(`${p.rapports.length} rapport(s)`) : "Pas encore de rapport")}
+        ${tile(`projets.${p.id}.livrables`, "travail", "Livrables", pluriel(`${p.livrables.length} document(s)`))}
       </div>
       ${noteEcran("projet" + p.id)}
-      <div class="card stack"><h2>Agir sur ce projet</h2><p class="sub" style="margin:0">Deux touchers pour confirmer. Passer en réel reste votre décision : c'est une demande, l'Usine attend votre « oui ».</p>
-        <div class="agir">${p.arrete ? ordre("projet" + p.id, `Change, relance le projet ${p.id} (${p.nom})`, "Relancer", `Demande envoyée : ${p.nom} sera relancé.`)
+      <div>${sec("Je contrôle")}<div class="agir">${p.livrables.find(l => l.lien) ? lienDoc(p.livrables.find(l => /aper/i.test(l.genre) && l.lien)?.lien || p.livrables.find(l => l.lien).lien, "Ouvrir") : ""}${p.arrete ? ordre("projet" + p.id, `Change, relance le projet ${p.id} (${p.nom})`, "Relancer", `Demande envoyée : ${p.nom} sera relancé.`)
           : ordre("projet" + p.id, `Change, mets en pause le projet ${p.id} (${p.nom})`, "Mettre en pause", `Demande envoyée : ${p.nom} sera mis en pause au prochain passage.`)
-            + ordre("projet" + p.id, `Je demande de préparer le passage en réel du projet ${p.id} (${p.nom}). Rien ne change sans mon « oui » écrit.`, "Pousser en réel", `Demande envoyée : l'Usine prépare le passage en réel de ${p.nom} et attend votre « oui ».`)}</div></div>`};
+            + ordre("projet" + p.id, `Je demande de préparer le passage en réel du projet ${p.id} (${p.nom}). Rien ne change sans mon « oui » écrit.`, "Pousser en réel", `Demande envoyée : l'Usine prépare le passage en réel de ${p.nom} et attend votre « oui ».`)}</div>
+        <p class="hint">Deux touchers pour confirmer. Passer en réel reste votre décision : l'Usine attend votre « oui ».</p></div>
+      ${chatChose("p-" + p.id, `(projet ${p.id}`, `(projet ${p.id}, ${p.nom})`, "de ce projet")}`};
   },
   "projet.decision"(p){ const x = p.decisions[0]; return x ? VUES.decision(x) : null; },
   "projet.plan"(p){
@@ -530,12 +553,8 @@ const VUES = {
       ${p.rapports.length ? `<div class="rows">${p.rapports.map((r, i) => { const qui = M.parCle[r.qui] ? `${M.parCle[r.qui].prenom} (${posteCourt(M.parCle[r.qui].poste)})` : (r.qui || "L'équipe"); return `<details class="rep" ${i === 0 ? "open" : ""}><summary><span class="avatar" style="width:36px;height:36px;font-size:13px">${esc(qui[0])}</span><span class="tx"><b>${esc(r.titre)}</b><span class="sub">${r.date ? esc(fmtD(r.date)) + " · " : ""}${esc(qui)}</span></span></summary><div class="body">${r.texte && r.texte !== "pas encore de mesure" ? esc(propre(r.texte)) : r.texte ? "Pas encore de chiffres : le site n'est pas en ligne." : ""}${r.lien ? `<div style="margin-top:10px">${lienDoc(r.lien, "Lire le document")}</div>` : ""}</div></details>`; }).join("")}</div>` : vide("Pas encore de rapport : le premier arrive avec le suivi de la semaine.")}`};
   },
   "projet.messages"(p){
-    const suffixe = new RegExp(`\\s*\\(projet ${p.id}[^)]*\\)\\s*$`);
     return { crumbs: [["Mes projets", "projets"], [p.nom, "projets." + p.id], ["Parler de ce projet"]], html: `<div><h1>Parler de ce projet</h1><p class="lead">Vos messages et les réponses de l'équipe, pour ${esc(p.nom)} seulement.</p></div>
-      <div class="card"><div class="thread" id="thread">${p.messages.length ? p.messages.map(m => (m.texte ? `<div class="msg me">${esc(m.texte.replace(suffixe, ""))}<small>${esc(fmtD(m.date) || m.date)}</small></div>` : "") + (m.reponse ? `<div class="msg them">${esc(propre(m.reponse))}<small>${esc(m.statut || "Réponse de l'Usine")}</small></div>` : m.texte ? `<div class="msg them"><span class="sub">Message reçu. L'équipe répond à son prochain passage.</span></div>` : "")).join("") : `<p class="sub">Aucun message pour l'instant.</p>`}</div>
-      ${noteEcran("msg" + p.id)}
-      <form class="compose" data-proj="${esc(p.id)}"><input id="cm" aria-label="Votre message" placeholder="Ex. : « Où en est le cahier des charges ? »" autocomplete="off"><button class="btn primary">Envoyer</button></form>
-      <p class="sub" style="margin:8px 0 0">${enSim() ? "Simulation : le message reste ici, il n'est envoyé à personne." : "Le message est écrit dans « Parler à l'Usine ». La réponse arrive au prochain passage du moteur."}</p></div>`};
+      ${chatChose("p-" + p.id, `(projet ${p.id}`, `(projet ${p.id}, ${p.nom})`, "de ce projet")}`};
   },
   "projet.livrables"(p){
     const attendus = ["Étude de marché","Cahier des charges","Identité visuelle","Aperçu du site","Fiche technique"];
@@ -548,16 +567,13 @@ const VUES = {
       ${enSim() ? `<p class="sub">Simulation : ces documents sont des exemples, sans lien.</p>` : ""}`};
   },
   equipe(){
-    const qs = qualSerie(), ts = tachesSerie(), cs = coutSerie();
-    return { crumbs: [["Mon équipe"]], html: `<div><h1>Mon équipe</h1><p class="lead">${M.agents.length} employés, rangés par service. Cliquez sur un service pour voir ses employés.</p></div>
-      <div class="mini">
-        <div class="kpi"><div class="k">Qualité moyenne</div>${dernier(qs) != null ? `<div class="v">${dernier(qs)} / 100</div>` : `<div class="v txt">Pas encore notée</div>`}${tendance(qs)}${spark(qs)}</div>
-        <div class="kpi"><div class="k">Tâches faites ce mois</div><div class="v">${dernier(ts) ?? 0}</div>${tendance(ts)}${spark(ts)}</div>
-        <div class="kpi"><div class="k">Coût de l'équipe ce mois</div><div class="v">${usd(M.argent.ia ?? dernier(cs) ?? 0)}</div>${tendance(cs, true)}${spark(cs, "var(--cost)")}</div>
-      </div>
-      <div class="tiles">${services().map(([s, l], i) => tileS(`equipe.service-${i}`, "equipe", s, l.map(a => a.prenom).join(", "), qualSerie(l), "var(--rev)")).join("")}</div>
-      <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h2>Cette semaine</h2><span class="sub">ce que chaque employé a fait</span></div>
-        ${M.fil.length ? `<ul class="feed">${M.fil.slice(0, 8).map(f => `<li><span class="avatar">${esc(prenomDe(f.agent)[0])}</span><span class="tx"><a href="#equipe.${esc(f.agent)}" style="color:inherit;font-weight:700;text-decoration:none">${esc(prenomDe(f.agent))}</a> ${esc(f.texte)}</span><span class="when">${esc(fmtD(f.date))}</span></li>`).join("")}</ul>${M.fil.length > 8 ? `<p class="sub" style="margin:8px 0 0">Et ${M.fil.length - 8} autre${M.fil.length > 9 ? "s" : ""} travaux : voyez « Son travail » de chaque employé.</p>` : ""}` : vide(M.qgAbsent ? "Le fil de la semaine arrivera avec la prochaine mise à jour du moteur." : "Rien de nouveau cette semaine.")}</div>`};
+    const qs = qualSerie(), ts = tachesSerie(), s = M.superviseur;
+    return { crumbs: [["Les agents"]], html: `<div><h1>Les agents</h1><p class="lead">${pluriel(`${M.agents.length} agent(s)`)}, chacun son métier. Le Superviseur voit tout et vous rapporte.</p></div>
+      ${sec("Au-dessus")}<div class="card stack"><div style="display:flex;gap:12px;align-items:center"><span class="ic-r">🔭</span><div style="flex:1"><b>Le Superviseur</b><div class="sub">${s ? esc(fmtD(s.date)) : "sa rubrique arrive avec la prochaine journée du moteur"}</div></div>${s ? `<span class="pill ${/🔴/.test(s.etat) ? "bad" : /🟡/.test(s.etat) ? "warn" : "good"}">${esc(s.etat)}</span>` : ""}</div>
+        ${s ? `<p style="margin:0">${esc(s.detail)}</p>${s.anomalies.concat(s.bloques).length ? `<ul class="probs">${s.anomalies.concat(s.bloques).map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}` : `<p class="sub" style="margin:0">Il regarde tout et vous dit la vérité chaque jour.</p>`}</div>
+      <div class="bignums"><div class="bn"><div class="v">${dernier(qs) ?? "–"}</div><div class="l">qualité moyenne / 100</div></div><div class="bn"><div class="v">${dernier(ts) ?? 0}</div><div class="l">tâches ce mois</div></div><div class="bn"><div class="v">${M.agents.filter(a => a.noteSup && a.noteSup.emoji === "🔴").length}</div><div class="l">à surveiller 🔴</div></div></div>
+      ${services().map(([sv, l]) => `${sec(esc(sv))}<div class="rows">${l.map(a => `<a class="rowl" href="#equipe.${esc(a.id)}"><span class="avatar">${esc(a.prenom[0])}</span><span class="tx"><b>${esc(a.prenom)} · ${esc(posteCourt(a.poste))}</b><span>${esc(a.travail[0] ? maj(a.travail[0].texte) : a.role)}</span></span>${noteAgent(a)}<span class="go">›</span></a>`).join("")}</div>`).join("")}
+      ${chatChose("agents", "(agents)", "(agents)", "de l'équipe")}`};
   },
   service(i){
     const [s, l] = services()[i] || [];
@@ -567,30 +583,29 @@ const VUES = {
   },
   agent(a){
     const q = qualiteDe(a), t = dernier(a.taches), c = dernier(a.cout);
-    return { crumbs: [["Mon équipe", "equipe"], [a.service, "equipe.service-" + serviceIdx(a)], [a.prenom]], html: `
-      <div class="card" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><span class="avatar" style="width:64px;height:64px;font-size:24px">${esc(a.prenom[0])}</span><div style="flex:1;min-width:200px"><h1>${esc(a.prenom)}</h1><p class="lead">${esc(a.poste)} · ${esc(a.role)}</p><p class="sub" style="margin:4px 0 0">${a.depuis ? `Dans l'équipe depuis le ${esc(/^\d{4}-/.test(a.depuis) ? fmtD(a.depuis) : a.depuis)} · ` : ""}${MODELES[a.niveau].nom}${a.rythme ? ` · travaille ${esc(a.rythme)}` : ""}</p></div>${pillQualite(q)}</div>
-      <div class="mini">
-        <div class="kpi"><div class="k">Qualité</div>${q != null ? `<div class="v">${q} / 100</div>` : `<div class="v txt">Pas encore notée</div>`}${points(a.qualite) ? tendance(a.qualite) : a.examens.length > 1 ? `<span class="trend sub">Contrôles : ${a.examens.join(", ")}</span>` : tendance(a.qualite)}${spark(points(a.qualite) > 1 ? a.qualite : a.examens.length > 1 ? Array(12 - a.examens.length).fill(null).concat(a.examens) : a.qualite)}</div>
-        <div class="kpi"><div class="k">Tâches ce mois</div><div class="v">${t ?? 0}</div>${tendance(a.taches)}${spark(a.taches)}</div>
-        <div class="kpi"><div class="k">Coût ce mois</div><div class="v">${usd(c ?? 0)}</div>${tendance(a.cout, true)}${spark(a.cout, "var(--cost)")}</div>
-      </div>
-      <div class="tiles">
+    return { crumbs: [["Les agents", "equipe"], [a.prenom]], html: `
+      <div style="display:flex;gap:14px;align-items:center"><span class="avatar" style="width:60px;height:60px;font-size:22px">${esc(a.prenom[0])}</span><div style="flex:1;min-width:0"><div class="kicker">${esc(a.service)}</div><h1>${esc(a.prenom)}</h1><p class="lead">${esc(a.poste)}</p></div></div>
+      <div class="card stack"><div>${sec("Son métier")}<p style="margin:0">${esc(a.role)}${a.rythme ? ` · travaille ${esc(a.rythme)}` : ""}</p></div>
+        <div>${sec("Avancement", "en ce moment")}<p style="margin:0;font-weight:600">${esc(a.travail[0] ? maj(a.travail[0].texte) : "Rien cette semaine.")}</p><p class="sub" style="margin:4px 0 0">${pluriel(`${t ?? 0} tâche(s) ce mois`)}${a.enAttente ? pluriel(` · ${a.enAttente} qui attend(ent)`) : ""}</p></div>
+        <div>${sec("Sa note")}<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${noteAgent(a)}${q != null ? `<b class="num">${q} / 100</b>` : ""}</div>${a.noteSup && a.noteSup.detail ? `<p class="sub" style="margin:6px 0 0">Le Superviseur : ${esc(a.noteSup.detail)}</p>` : ""}</div></div>
+      <div class="costgrid"><div><span class="cl">Qualité</span><span class="cv">${q ?? "–"}</span>${tendance(a.qualite)}</div><div><span class="cl">Coût ce mois</span><span class="cv">${usd(c ?? 0)}</span><span class="cn">${MODELES[a.niveau].nom}</span></div></div>
+      <div class="rows">
         ${tile(`equipe.${a.id}.travail`, "travail", "Son travail", a.travail[0] ? a.travail[0].texte : "Rien cette semaine")}
         ${tile(`equipe.${a.id}.evolution`, "evol", "Son évolution", q != null ? `Qualité ${q} / 100` : "Qualité, tâches et coût")}
-        ${tile(`equipe.${a.id}.histoire`, "rapports", "Son histoire", `${a.histoire.length} moment${a.histoire.length > 1 ? "s" : ""} marquant${a.histoire.length > 1 ? "s" : ""}`)}
-        ${tile(`equipe.${a.id}.contrat`, "contrat", "Son contrat", `${MODELES[a.niveau].nom} · ${usd(c ?? 0)} ce mois`)}
+        ${tile(`equipe.${a.id}.histoire`, "rapports", "Son histoire", pluriel(`${a.histoire.length} moment(s) marquant(s)`))}
       </div>
       ${noteEcran("agent" + a.id)}
-      <div class="card stack"><h2>Agir</h2><div class="agir">${ordre("agent" + a.id, `Change « ${a.poste} » : mettre en pause`, "Mettre en pause", `Demande envoyée : ${a.prenom} sera mis en pause au prochain passage.`)}<a class="btn" href="#equipe.${esc(a.id)}.contrat">Améliorer</a><a class="btn" href="#equipe.${esc(a.id)}.contrat">Remplacer</a></div></div>`};
+      <div>${sec("Je contrôle")}<div class="agir">${ordre("agent" + a.id, `Change « ${a.poste} » : mettre en pause`, "Mettre en pause", `Demande envoyée : ${a.prenom} sera mis en pause au prochain passage.`)}<a class="btn" href="#equipe.${esc(a.id)}.contrat">Améliorer</a><a class="btn" href="#equipe.${esc(a.id)}.contrat">Remplacer</a></div></div>
+      ${chatChose("a-" + a.id, `(agent « ${a.poste} »)`, `(agent « ${a.poste} »)`, "avec " + a.prenom)}`};
   },
   "agent.travail"(a){
-    const crumbs = [["Mon équipe", "equipe"], [a.service, "equipe.service-" + serviceIdx(a)], [a.prenom, "equipe." + a.id], ["Son travail"]];
+    const crumbs = [["Les agents", "equipe"], [a.prenom, "equipe." + a.id], ["Son travail"]];
     return { crumbs, html: `<div><h1>Le travail ${esc(de(a.prenom))}</h1><p class="lead">Ce qu'il ou elle a fait ces 7 derniers jours.</p></div>
       <div class="kpis">${kpi("Tâches ce mois", dernier(a.taches) ?? 0)}${a.executions != null ? kpi("Passages au total", a.executions) : ""}${a.echecs != null ? kpi("Ratés au total", a.echecs, a.echecs ? "down" : "") : ""}${a.enAttente != null ? kpi("Tâches qui attendent", a.enAttente) : ""}</div>
       <div class="card">${a.travail.length ? `<ul class="tl">${a.travail.map(t => `<li class="done"><span class="d">${esc(fmtD(t.date))}</span><b>${esc(t.texte.charAt(0).toUpperCase() + t.texte.slice(1))}</b></li>`).join("")}</ul>` : `<p class="sub" style="margin:0">Rien cette semaine. ${a.rythme ? `Son rythme : ${esc(a.rythme)}.` : ""}</p>`}</div>`};
   },
   "agent.evolution"(a){
-    const crumbs = [["Mon équipe", "equipe"], [a.service, "equipe.service-" + serviceIdx(a)], [a.prenom, "equipe." + a.id], ["Son évolution"]];
+    const crumbs = [["Les agents", "equipe"], [a.prenom, "equipe." + a.id], ["Son évolution"]];
     const q = a.qualite, debut = q.findIndex(v => v != null);
     return { crumbs, html: `<div><h1>L'évolution ${esc(de(a.prenom))}</h1><p class="lead">${points(q) > 1 ? `Qualité : de ${q[debut]} à ${dernier(q)} sur 100 depuis son arrivée.` : "Sa qualité, ses tâches et son coût, mois par mois."}</p></div>
       <div class="card"><h2 style="margin-bottom:12px">Qualité de son travail (sur 100)</h2>${courbe([{n:"Qualité", v:q, c:"var(--rev)", w:2.5, fmt:v => v + " / 100"}], {label:"Qualité de " + a.prenom, bottom:50, top:100, step:10}, "Pas encore notée.")}
@@ -599,12 +614,12 @@ const VUES = {
       <div class="card"><h2>Ce qu'il coûte, mois par mois (en dollars)</h2><p class="sub" style="margin:4px 0 12px">Pour juger s'il vaut son « salaire » : son coût à côté de sa qualité et de son travail.</p>${courbe([{n:"Coût", v:a.cout, c:"var(--cost)", w:2.5, fmt:v => usd(v)}], {label:"Coût de " + a.prenom, step:0.2, min:0.2})}</div>`};
   },
   "agent.histoire"(a){
-    const crumbs = [["Mon équipe", "equipe"], [a.service, "equipe.service-" + serviceIdx(a)], [a.prenom, "equipe." + a.id], ["Son histoire"]];
+    const crumbs = [["Les agents", "equipe"], [a.prenom, "equipe." + a.id], ["Son histoire"]];
     return { crumbs, html: `<div><h1>L'histoire ${esc(de(a.prenom))}</h1></div>
       <div class="card">${a.histoire.length ? `<ul class="tl">${a.histoire.map(([s, d, t, x]) => `<li class="${s}"><span class="d">${esc(d)}</span><b>${esc(t)}</b>${x ? `<span class="sub">${esc(x)}</span>` : ""}</li>`).join("")}</ul>` : `<p class="sub" style="margin:0">Pas encore de moment marquant.</p>`}</div>`};
   },
   "agent.contrat"(a){
-    const crumbs = [["Mon équipe", "equipe"], [a.service, "equipe.service-" + serviceIdx(a)], [a.prenom, "equipe." + a.id], ["Son contrat"]];
+    const crumbs = [["Les agents", "equipe"], [a.prenom, "equipe." + a.id], ["Son contrat"]];
     const cur = a.niveau, enCours = enSim() ? [] : M.messages.filter(m => !m.statut && m.texte.includes(`« ${a.poste} »`));
     return { crumbs, html: `<div><h1>Le contrat ${esc(de(a.prenom))}</h1><p class="lead">Son « salaire », c'est le modèle d'IA qu'il utilise. Un meilleur modèle coûte plus cher et travaille mieux. Ses plafonds de dépense ne changent pas.</p></div>
       ${noteEcran("contrat" + a.id)}
@@ -632,7 +647,8 @@ const VUES = {
       ${noteEcran("argent")}
       <div class="card stack"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h2>Passer en réel</h2>${bloque("Bloqué : votre décision")}</div>
         <p class="sub" style="margin:0">Aujourd'hui tout est en TEST : rien n'est publié, acheté ni dépensé. Ce bouton envoie seulement votre demande ; l'Usine prépare la liste de ce qui changerait et attend votre « oui » écrit.</p>
-        <div class="agir">${ordre("argent", "Je demande de préparer le passage en réel. Rien ne change sans mon « oui » écrit.", "Demander le passage en réel", "Demande envoyée : l'Usine prépare le passage en réel et attend votre « oui ».")}</div></div>`};
+        <div class="agir">${ordre("argent", "Je demande de préparer le passage en réel. Rien ne change sans mon « oui » écrit.", "Demander le passage en réel", "Demande envoyée : l'Usine prépare le passage en réel et attend votre « oui ».")}</div></div>
+      ${chatChose("argent", "(argent)", "(argent)", "de l'argent")}`};
   },
   "argent.ensemble"(){
     const r = totRev(), c = totCost(), bs = benefSerie(), ia = M.argent.coutIA, Rv = sum(r), C = sum(c);
@@ -674,24 +690,36 @@ const VUES = {
       ${payants.length ? `<p class="sub">Outils en service : ${payants.map(o => esc(o.principal) + (o.gratuit ? ` (${esc(/^oui/i.test(o.gratuit) ? "gratuit" : o.gratuit)})` : "")).join(", ")}.</p>` : ""}`};
   },
   biblio(){
-    const f = M.biblio.fiches, rayons = rayonsDe(), ouv = M.biblio.lacunes.filter(l => !/r[ée]solu/i.test(l.statut));
-    return { crumbs: [["La Bibliothèque"]], html: `<div><h1>La Bibliothèque</h1><p class="lead">Les bonnes pratiques de l'Usine, rangées comme une vraie bibliothèque : des rayons, des livres, des fiches. Chaque agent suit les fiches validées.</p></div>
-      <div class="kpis">${kpi("Fiches validées", f.filter(x => /valid/i.test(x.statut)).length)}${kpi("Propositions", f.filter(x => /propos/i.test(x.statut)).length)}${kpi("Utilisations", sum(f.map(x => nombre(x.applications) || 0)))}</div>
-      <div class="tiles">${rayons.map(([r, l], i) => tile(`biblio.r${i}`, "livre", r, `${l.length} fiche${l.length > 1 ? "s" : ""}`)).join("")}</div>
-      <div class="tiles">
-        ${tile("biblio.lacunes", "trou", "Ce qui manque", ouv.length ? `${ouv.length} manque${ouv.length > 1 ? "s" : ""} à combler` : "Rien ne manque")}
-        ${tile("biblio.idees", "idee", "Boîte à idées", `${M.biblio.idees.length} idée${M.biblio.idees.length > 1 ? "s" : ""} notée${M.biblio.idees.length > 1 ? "s" : ""}`)}
-        ${tile("biblio.deposer", "rapports", "Déposer un document", "La Bibliothécaire l'intègre à son prochain passage")}
-        ${tile("biblio.semaine", "decide", "Validées cette semaine", M.biblio.semaine.length ? `${M.biblio.semaine.length} par le Directeur général` : "Aucune par le Directeur général")}
-      </div>
+    const f = M.biblio.fiches, porte = f.filter(x => /propos/i.test(x.statut)), ouv = M.biblio.lacunes.filter(l => !/r[ée]solu/i.test(l.statut));
+    const aile = (k, titre, aide) => { const l = f.filter(x => (x.aile || "systeme") === k && !/propos/i.test(x.statut));
+      return `${sec(titre, aide)}${l.length ? `<div class="rows">${l.map(ligneFiche).join("")}</div>` : `<p class="sub" style="margin:0">Rien pour l'instant.</p>`}`; };
+    return { crumbs: [["La Bibliothèque"]], html: `<div><h1>La Bibliothèque</h1><p class="lead">Les stratégies de l'Usine, en deux ailes. Chaque stratégie a son test et sa note ; rien n'entre sans passer la porte.</p></div>
+      <div class="bignums"><div class="bn"><div class="v">${f.filter(x => /valid/i.test(x.statut)).length}</div><div class="l">validées</div></div><div class="bn"><div class="v">${porte.length}</div><div class="l">à la porte</div></div><div class="bn"><div class="v">${sum(f.map(x => nombre(x.applications) || 0))}</div><div class="l">utilisations</div></div></div>
+      ${noteEcran("porte")}
+      ${sec("🚪 La porte", "à valider ou refuser")}${porte.length ? `<div class="card stack">${porte.map(x => `<div><b>${esc(x.titre)}</b><div class="sub">${esc(x.aile === "manuelle" ? "Apportée par vous" : "Créée par l'Usine")} · ${noteFiche(x)}</div>
+        <div class="agir" style="margin-top:8px">${ordre("porte", `Change, valide la fiche ${x.id}`, "Valider", `C'est noté : « ${x.titre} » entre dans la Bibliothèque.`, "primary")}${ordre("porte", `Change, refuse la fiche ${x.id}`, "Refuser", `C'est noté : « ${x.titre} » est refusée.`, "danger")}</div></div>`).join("")}</div>` : `<p class="sub" style="margin:0">Personne n'attend à la porte.</p>`}
+      ${aile("manuelle", "✋ L'aile manuelle", "ce que vous apportez")}
+      ${aile("systeme", "⚙️ L'aile système", "ce que l'Usine crée seule")}
       ${noteEcran("video")}
-      <div class="card stack"><h2>Ajouter une vidéo</h2><p class="sub" style="margin:0">Collez le lien : la Bibliothécaire la regarde et propose une fiche, que vous validerez ou refuserez.</p>
-        <form class="form2" data-video="1"><input id="video-url" type="url" inputmode="url" aria-label="Lien de la vidéo" placeholder="https://…" autocomplete="off" required><button class="btn primary">Envoyer</button></form></div>`};
+      <div class="card stack"><h2>Ajouter une vidéo</h2><p class="sub" style="margin:0">Collez le lien : la Bibliothécaire la regarde et propose une fiche, qui passera par la porte.</p>
+        <form class="form2" data-video="1"><input id="video-url" type="url" inputmode="url" aria-label="Lien de la vidéo" placeholder="https://…" autocomplete="off" required><button class="btn primary">Envoyer</button></form></div>
+      <div class="rows">
+        ${tile("biblio.rayons", "livre", "Les rayons", pluriel(`${rayonsDe().length} rayon(s)`))}
+        ${tile("biblio.lacunes", "trou", "Ce qui manque", ouv.length ? pluriel(`${ouv.length} manque(s) à combler`) : "Rien ne manque")}
+        ${tile("biblio.idees", "idee", "Boîte à idées", pluriel(`${M.biblio.idees.length} idée(s)`))}
+        ${tile("biblio.deposer", "rapports", "Déposer un document", "Il entre dans l'aile manuelle")}
+        ${tile("biblio.semaine", "decide", "Validées cette semaine", M.biblio.semaine.length ? pluriel(`${M.biblio.semaine.length} fiche(s)`) : "Aucune")}
+      </div>
+      ${chatChose("biblio", "(bibliothèque)", "(bibliothèque)", "de la Bibliothèque")}`};
+  },
+  rayons(){
+    return { crumbs: [["La Bibliothèque", "biblio"], ["Les rayons"]], html: `<div><h1>Les rayons</h1><p class="lead">Des rayons, des livres, des fiches.</p></div>
+      <div class="rows">${rayonsDe().map(([r, l], i) => tile(`biblio.r${i}`, "livre", r, pluriel(`${l.length} fiche(s)`))).join("")}</div>`};
   },
   rayon(i){
     const [r, l] = rayonsDe()[i] || []; if (!r) return null;
     const livres = livresDe(l);
-    return { crumbs: [["La Bibliothèque", "biblio"], [r]], html: `<div><h1>${esc(r)}</h1><p class="lead">Les livres de ce rayon : un livre par étape du travail.</p></div>
+    return { crumbs: [["La Bibliothèque", "biblio"], ["Les rayons", "biblio.rayons"], [r]], html: `<div><h1>${esc(r)}</h1><p class="lead">Les livres de ce rayon : un livre par étape du travail.</p></div>
       <div class="tiles">${livres.map(([lv, fs], j) => tile(`biblio.r${i}.${j}`, "livre", lv === "Toutes" ? "Pour toutes les étapes" : lv, `${fs.length} fiche${fs.length > 1 ? "s" : ""}`)).join("")}</div>`};
   },
   livre(i, j){
@@ -709,10 +737,13 @@ const VUES = {
         <dt>Écrite par</dt><dd>${/directeur g[ée]n[ée]ral/i.test(f.notes || "") ? "Le Directeur général" : "L'équipe de la Bibliothèque"}${f.revision ? `, revue le ${esc(fmtD(f.revision))}` : ""} · version ${esc(String(f.version).replace(/^v/, ""))}</dd>
         <dt>Pour qui</dt><dd>${esc(f.agents || "Tous")}${f.types && f.types !== "Tous" ? ` · projets ${esc(f.types)}` : ""}</dd>
         <dt>Projets qui l'utilisent</dt><dd>${f.projets.length ? esc(f.projets.join(", ")) : "Aucun pour l'instant"}${f.applications ? ` · utilisée ${esc(f.applications)} fois` : ""}${f.reussite ? ` · réussite ${esc(f.reussite)}` : ""}</dd>
+        <dt>Lancement et test</dt><dd>${esc(noteFiche(f))}</dd>
+        <dt>Son aile</dt><dd>${f.aile === "manuelle" ? "L'aile manuelle : apportée par vous" : "L'aile système : créée par l'Usine"}</dd>
         <dt>Ses sources</dt><dd>${preuve}</dd>
         ${f.notes ? `<dt>À savoir</dt><dd>${esc(propre(f.notes))}</dd>` : ""}
       </dl>${f.lien ? `<div style="margin-top:14px">${lienDoc(f.lien, "Lire la fiche")}</div>` : ""}</div>
-      ${/propos/i.test(f.statut) ? `<div class="card stack"><h2>Votre décision</h2><p class="sub" style="margin:0">Une proposition ne devient une règle de l'équipe qu'avec votre accord.</p><div class="agir">${ordre("fiche" + f.id, `Change, valide la fiche ${f.id}`, "Valider la stratégie", `C'est noté : « ${f.titre} » sera validée au prochain passage.`, "primary")}${ordre("fiche" + f.id, `Change, refuse la fiche ${f.id}`, "Refuser", `C'est noté : « ${f.titre} » est refusée.`, "danger")}</div></div>` : ""}`};
+      ${/propos/i.test(f.statut) ? `<div class="card stack"><h2>Votre décision</h2><p class="sub" style="margin:0">Une proposition ne devient une règle de l'équipe qu'avec votre accord.</p><div class="agir">${ordre("fiche" + f.id, `Change, valide la fiche ${f.id}`, "Valider la stratégie", `C'est noté : « ${f.titre} » sera validée au prochain passage.`, "primary")}${ordre("fiche" + f.id, `Change, refuse la fiche ${f.id}`, "Refuser", `C'est noté : « ${f.titre} » est refusée.`, "danger")}</div></div>` : ""}
+      ${chatChose("f-" + f.id, `(fiche ${f.id})`, `(fiche ${f.id})`, "de cette fiche")}`};
   },
   lacunes(){
     const l = M.biblio.lacunes;
@@ -893,7 +924,7 @@ function machine(){
   const s = etatSecurite(), fiches = M.biblio.fiches.length;
   return `<div class="machine">
     <a class="mtile" href="#equipe"><span class="ico">${ICON.equipe}</span><span class="n">${M.agents.length}</span><span class="l">Agents</span></a>
-    <a class="mtile" href="#biblio"><span class="ico">${ICON.livre}</span><span class="n">${fiches}</span><span class="l">Fiches</span></a>
+    <a class="mtile" href="#biblio"><span class="ico">${ICON.livre}</span><span class="n">${fiches}</span><span class="l">Bibliothèque</span></a>
     <a class="mtile" href="#securite"><span class="ico">${ICON.sante}</span><span class="n ${s.ok ? "ok" : "ko"}">${s.ok ? "OK" : s.alertes.length}</span><span class="l">Sécurité</span></a>
     <a class="mtile" href="#reglages"><span class="ico">${ICO.reglages}</span><span class="n">TEST</span><span class="l">Réglages</span></a></div>`;
 }
@@ -933,6 +964,26 @@ function reponseSim(v){
   return "Bien reçu. Le Directeur général s'en occupe à son prochain passage.";
 }
 
+/* Chaque page a son propre chat : les messages sur cette chose seulement (une étiquette est ajoutée au message envoyé). */
+const SIMCHATS = {};
+function chatChose(cle, tag, suffixe, titre){
+  const l = [];
+  if (enSim()) (SIMCHATS[cle] || []).forEach(m => l.push(m));
+  else M.messages.filter(m => m.texte && m.texte.includes(tag)).forEach(m => {
+    const t = m.texte.endsWith(suffixe) ? m.texte.slice(0, -suffixe.length).trim() : m.texte.replace(/\s*\([^)]*\)\s*$/, "");
+    l.push({qui: "me", t, d: fmtD(m.date) || m.date});
+    l.push(m.reponse ? {qui: "them", t: propre(m.reponse), d: m.statut || "Usine"} : {qui: "them", t: "Bien reçu. L'équipe répond à son prochain passage.", d: "en attente"});
+  });
+  return `<section class="card chat"><div class="ch-head"><span class="av">U</span><div><div class="who">Parler ${esc(titre)}</div><span class="st">${enSim() ? "simulation" : "répond à son prochain passage"}</span></div></div>
+    <div class="msgs" id="thread">${l.length ? l.map(m => `<div class="msg ${m.qui}">${esc(m.t)}${m.d ? `<small>${esc(m.d)}</small>` : ""}</div>`).join("") : `<p class="sub" style="margin:0">Une question ou un ordre sur ${esc(titre.replace(/^(de |du |des |d')/, ""))} : l'Usine répond ici.</p>`}</div>
+    ${noteEcran("msg" + cle)}
+    <form class="ch-input" data-sujet="${esc(cle)}" data-suffixe="${esc(suffixe)}"><input id="cm" aria-label="Votre message" placeholder="Une question, un ordre…" autocomplete="off" maxlength="500"><button class="send" aria-label="Envoyer">${ICO.envoyer}</button></form></section>`;
+}
+const noteAgent = a => a.noteSup && a.noteSup.emoji ? `<span class="pill np ${a.noteSup.emoji === "🟢" ? "good" : a.noteSup.emoji === "🟡" ? "warn" : "bad"}">${a.noteSup.emoji} ${esc(a.noteSup.etat || "")}</span>` : pillQualite(qualiteDe(a));
+const sec = (t, x = "") => `<h3 class="sec">${t}${x ? ` <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:500">· ${x}</span>` : ""}</h3>`;
+const mesure = ok => ok ? `<span class="pill good">MESURÉ</span>` : `<span class="pill warn">ESTIMÉ</span>`;
+/* Qui fait l'étape en cours d'un projet. */
+const QUI_ETAPE = ["veille_strategie", "chef_produit", "", "chef_produit", "developpeur", "marketing", "analyste"];
 VUES.accueil = function(){
   const d = M.decisions, v = verdict2(), x = d[0];
   const dec = x ? `<section class="card dec2 ${x.cat === 5 ? "grave" : ""}"><div class="meta"><span class="d"></span>${esc(CATS_COURTS[x.cat] || "Décision")}<span class="count">1 sur ${d.length}</span></div>
@@ -958,7 +1009,7 @@ VUES.machine = function(){
     <div class="rows">
       ${ligne("argent", ICON.argent, "Argent", totRev().some(v => v) ? `Bénéfice du mois : ${signe(bs[11] || 0)}` : "0 € réel : rien gagné, rien dépensé")}
       ${ligne("equipe", ICON.equipe, "Agents", pluriel(`${M.agents.length} agent(s) · pause, améliorer, remplacer`))}
-      ${ligne("biblio", ICON.livre, "Fiches", pluriel(`${M.biblio.fiches.length} fiche(s) · ajouter une vidéo, valider`))}
+      ${ligne("biblio", ICON.livre, "Bibliothèque", pluriel(`${M.biblio.fiches.length} fiche(s) · ajouter une vidéo, valider`))}
       ${ligne("securite", ICON.sante, "Sécurité", s.ok ? "Tout est vert" : pluriel(`${s.alertes.length} alerte(s)`), s.ok ? `<span class="pill good">OK</span>` : `<span class="pill bad">${s.alertes.length}</span>`)}
       ${ligne("reglages", ICO.reglages, "Réglages", "Verrou, budget, cerveaux IA, notifications")}
     </div>
@@ -1004,7 +1055,8 @@ VUES.decision = function(x){
       <button class="opt" data-corriger="${esc(x.n)}"><b>Demander des corrections</b><small>Écrire ce qu'il faut changer</small></button></div>
       <form id="fix-${esc(x.n)}" data-fix="${esc(x.n)}" hidden style="margin-top:10px;flex-direction:column;gap:8px"><textarea class="fix" id="fixt-${esc(x.n)}" aria-label="Les corrections demandées" placeholder="Ex. : « Ajoutez une version en anglais avant de lancer. »"></textarea><div><button class="btn primary">Envoyer les corrections</button></div></form>
       <p class="hint">Un toucher pour choisir, un deuxième pour confirmer.</p></div>
-    <p class="sub">${enSim() ? "Simulation : votre réponse reste dans ce navigateur." : "Votre réponse est écrite dans le tableau. L'équipe l'applique à son prochain passage."}</p>`};
+    <p class="sub">${enSim() ? "Simulation : votre réponse reste dans ce navigateur." : "Votre réponse est écrite dans le tableau. L'équipe l'applique à son prochain passage."}</p>
+    ${chatChose("d-" + x.n, `(décision ligne ${x.n})`, `(décision ligne ${x.n})`, "de cette décision")}`};
 };
 
 /* Sécurité : voir, révoquer un accès, voir les alertes. */
@@ -1020,7 +1072,8 @@ VUES.securite = function(){
     <div><h3 class="sec">Accès</h3><div class="vlist">
       <div class="vrow"><span class="nm">Google (votre compte)<small>${enSim() ? "Simulation : pas de connexion." : G.connecte() ? "Connecté, pour une heure au plus. Jamais enregistré." : "Pas connecté."}</small></span>${!enSim() && G.connecte() ? `<button class="btn danger rt" data-arme="revoquer">Couper l'accès</button>` : ""}</div>
     </div><p class="sub" style="margin:8px 0 0">Pour retirer l'autorisation donnée à l'app : <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">vos autorisations Google ↗</a>.</p></div>
-    <a class="open-link" href="#usine" style="margin-left:0;align-self:flex-start">Les coulisses de l'Usine ›</a>`};
+    <a class="open-link" href="#usine" style="margin-left:0;align-self:flex-start">Les coulisses de l'Usine ›</a>
+    ${chatChose("securite", "(sécurité)", "(sécurité)", "de la sécurité")}`};
 };
 
 /* ===================== Notifications, réglages ===================== */
@@ -1057,6 +1110,7 @@ VUES.reglages = function(){
     <div class="card stack"><h2>Données affichées</h2><div class="seg seg-l" role="group" aria-label="Données affichées"><button data-mode="reel" aria-pressed="${MODE === "reel"}">Vraies données</button><button data-mode="sim" aria-pressed="${MODE === "sim"}">Simulation</button></div>
       <p class="sub" style="margin:0">La Simulation montre l'app avec des données d'exemple. Rien n'est envoyé.</p></div>
     <div class="card stack"><h2>Apparence</h2><div class="seg seg-l" role="group" aria-label="Thème">${[["auto","Comme le téléphone"],["light","Clair"],["dark","Sombre"]].map(([k, t]) => `<button data-theme-choix="${k}" aria-pressed="${theme === k}">${t}</button>`).join("")}</div></div>
+    ${M ? chatChose("reglages", "(réglages)", "(réglages)", "des réglages") : ""}
     <p class="foot">Mon QG ne garde aucune de vos données sur le téléphone. La connexion Google dure une heure et n'est jamais enregistrée.</p>`};
 };
 /* Verrou Face ID / code (verrou.js) : seul vous pouvez entrer, même si quelqu'un a votre téléphone ouvert. */
@@ -1100,6 +1154,13 @@ async function notif(travail, ok){
   route(true);
 }
 
+/* Note d'une stratégie : 🟢 / 🟡 / 🔴 d'après ses tests (taux de réussite), sinon d'après ses sources. */
+function noteFiche(f){
+  const r = nombre(String(f.reussite || "").replace("%", ""));
+  if (r != null) return `${r >= 70 ? "🟢" : r >= 40 ? "🟡" : "🔴"} réussite ${r} % sur ${pluriel(`${nombre(f.applications) || 0} test(s)`)}`;
+  return `⚪ pas encore testée · sources ${{A: "solides", B: "correctes", C: "à confirmer"}[f.preuve] || "non précisées"}`;
+}
+const ligneFiche = f => `<a class="rowl" href="#biblio.f.${encodeURIComponent(f.id).replace(/%/g, "~")}"><span class="tx"><b>${esc(f.titre)}</b><span>${esc(noteFiche(f))}${f.projets.length ? " · " + esc(f.projets.join(", ")) : ""}</span></span>${statutFiche(f)}<span class="go">›</span></a>`;
 function statutFiche(f){ return /valid/i.test(f.statut) ? `<span class="pill good">Validée</span>` : /propos/i.test(f.statut) ? `<span class="pill warn">Proposition</span>` : `<span class="pill off">${esc(f.statut || "Ancienne")}</span>`; }
 function rayonsDe(){ const g = {}; M.biblio.fiches.forEach(f => (g[f.rayon] ||= []).push(f)); return Object.entries(g); }
 function livresDe(fs){ const g = {}; fs.forEach(f => (g[f.livre] ||= []).push(f)); return Object.entries(g).sort((a, b) => (a[0] === "Toutes") - (b[0] === "Toutes")); }
@@ -1266,9 +1327,6 @@ document.addEventListener("click", e => {
 document.addEventListener("submit", e => {
   e.preventDefault(); const f = e.target, btns = [...f.querySelectorAll("button")];
   if (enSim()) envoye = idsDu(f); // en Simulation, l'envoi réussit tout de suite
-  if (f.dataset.proj){ const v = $("#cm").value.trim(); if (!v) return; const p = M.parId[f.dataset.proj];
-    if (enSim()){ SIMMSG.push([p.id, v]); persoV++; notes["msg" + p.id] = {t: "Message gardé dans la simulation."}; route(true); return; }
-    action("msg" + p.id, () => envoyerMessage(`${v} (projet ${p.id}, ${p.nom})`), "Message envoyé. La réponse arrive au prochain passage du moteur.", btns); return; }
   if (f.dataset.fix){ const v = document.getElementById("fixt-" + f.dataset.fix).value.trim(); if (!v) return; decider(f.dataset.fix, "Demander des corrections : " + v, "", btns); return; }
   if (f.dataset.video){ const v = $("#video-url").value.trim(); if (!/^https:\/\/\S+$/.test(v) || v.length > 500){ notes.video = {t: "Collez un lien qui commence par https://", cls: "warn"}; route(true); return; }
     const ok = "Vidéo envoyée : la Bibliothécaire propose une fiche à son prochain passage.";
@@ -1278,6 +1336,9 @@ document.addEventListener("submit", e => {
     const ok = `Demande envoyée : budget IA de ${usd(x)} par jour.`;
     if (enSim()){ notes.reglages = {t: "Simulation : " + ok.charAt(0).toLowerCase() + ok.slice(1)}; route(true); return; }
     action("reglages", () => envoyerMessage(`Change le budget IA par jour : ${x} $`), ok, btns); return; }
+  if (f.dataset.sujet){ const v = $("#cm").value.trim().slice(0, 500); if (!v) return; const cle = f.dataset.sujet;
+    if (enSim()){ (SIMCHATS[cle] ||= []).push({qui: "me", t: v, d: "à l'instant"}, {qui: "them", t: reponseSim(v), d: "Usine · simulation"}); route(true); return; }
+    action("msg" + cle, () => envoyerMessage(`${v} ${f.dataset.suffixe}`), "Message envoyé. La réponse arrive au prochain passage du moteur.", btns); return; }
   if (f.dataset.chat){ const v = $("#chat-in").value.trim().slice(0, 500); if (!v) return;
     if (enSim()){ SIMCHAT.push({qui: "me", t: v, d: "à l'instant"}, {qui: "them", t: reponseSim(v), d: "Usine · simulation"}); route(true); return; }
     action("chat", () => envoyerMessage(v), "Envoyé à l'Usine. Elle répond à son prochain passage.", btns); return; }
