@@ -88,3 +88,21 @@ def test_manifeste_installable():
     assert m["display"] == "standalone" and m["name"] == "Mon QG"
     assert {"192x192", "512x512"} <= {i["sizes"] for i in m["icons"]}
     assert any(i.get("purpose") == "maskable" for i in m["icons"])
+
+
+def test_pages_cachees_des_moteurs_et_relais_jamais_en_cache():
+    assert 'content="noindex, nofollow"' in APP_TEXTES["index.html"]
+    assert "Disallow: /" in APP_TEXTES["robots.txt"]
+    assert "/api/*\n  Cache-Control: no-store" in APP_TEXTES["_headers"]
+    assert '"Cache-Control": "no-store"' in TEXTES["relais/relais.js"]
+    sw = APP_TEXTES["sw.js"]
+    assert 'url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return' in sw  # Google et relais : jamais en cache
+
+
+def test_aucune_dependance_dans_l_app_publiee():
+    # l'app livrée au téléphone n'emploie aucune bibliothèque ; http_ece ne sert qu'aux tests du relais
+    paquet = json.loads((APP / "package.json").read_text(encoding="utf-8"))
+    assert not paquet.get("dependencies"), paquet.get("dependencies")
+    assert set(paquet.get("devDependencies", {})) <= {"http_ece"}
+    for f in ("relais/relais.js", "relais/webpush.js"):
+        assert not re.search(r'from\s+"(?!\./)', TEXTES[f]), f  # seulement des fichiers locaux

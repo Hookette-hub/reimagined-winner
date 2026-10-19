@@ -157,8 +157,10 @@ def ouvrir(pw, navigateur, serveur, appareil):
     return ctx, page
 
 
-def connecter(page, serveur):
+def connecter(page, serveur, avant=None):
     google = FauxGoogle(page, serveur)
+    if avant:
+        avant(google)
     page.goto(serveur + "/")
     page.fill("#client-id", ID_CLIENT)
     page.click("#client-ok")
@@ -194,7 +196,7 @@ def parcourir(page, depart="accueil", limite=250):
 def test_chaque_ecran_simulation(pw, navigateur, serveur, appareil):
     ctx, page = ouvrir(pw, navigateur, serveur, appareil)
     page.goto(serveur + "/")
-    page.click(".seg [data-mode=sim]")
+    page.click("#view button[data-mode=sim] >> nth=0")
     page.wait_for_selector("text=Bonjour")
     vus = parcourir(page)
     assert len(vus) > 40, len(vus)  # tous les niveaux : projets, équipe, argent, Bibliothèque, Usine…
@@ -301,7 +303,7 @@ def test_simulation_n_envoie_rien(pw, navigateur, serveur):
     appels = []
     page.route(re.compile(r"https://.*google.*"), lambda r: (appels.append(r.request.url), r.abort()))
     page.goto(serveur + "/")
-    page.click(".seg [data-mode=sim]")
+    page.click("#view button[data-mode=sim] >> nth=0")
     page.evaluate("location.hash = 'biblio.deposer'")
     page.fill("#dep-titre", "Essai")
     page.fill("#dep-texte", "Essai")
@@ -325,7 +327,7 @@ def test_hors_ligne(pw, navigateur, serveur):
     page.wait_for_function("navigator.serviceWorker.controller !== null")
     ctx.set_offline(True)
     page.reload()
-    page.click(".seg [data-mode=sim]")
+    page.click("#view button[data-mode=sim] >> nth=0")
     page.wait_for_selector("text=Bonjour")
     page.evaluate("location.hash = 'projets'")
     page.wait_for_selector("text=Mes projets")
@@ -405,16 +407,24 @@ def test_valider_depuis_l_accueil_en_deux_touchers(pw, navigateur, serveur):
 def test_onglets_et_reglages(pw, navigateur, serveur):
     ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
     page.goto(serveur + "/")
-    page.click(".seg [data-mode=sim]")
-    for onglet, titre in (("decisions", "Vos décisions"), ("projets", "Mes projets"), ("reglages", "Ce que vous devez faire vous-même"), ("accueil", "Bonjour")):
+    page.click("#view button[data-mode=sim] >> nth=0")
+    for onglet, titre in (("decisions", "Vos décisions"), ("projets", "Mes projets"), ("reglages", "Données affichées"), ("accueil", "Bonjour")):
         page.click(f"#tabs [data-tab={onglet}]")
         page.wait_for_selector(f"text={titre}")
         assert page.get_attribute(f"#tabs [data-tab={onglet}]", "aria-current") == "page"
+    page.click("#tabs [data-tab=reglages]")
+    page.click("a[href='#demarrage']")
+    page.wait_for_selector("text=Ce que vous devez faire vous-même")
+    assert page.get_attribute("#tabs [data-tab=reglages]", "aria-current") == "page"
     page.click("#tabs [data-tab=reglages]")
     page.click("button[data-theme-choix=dark]")
     assert page.evaluate("document.documentElement.dataset.theme") == "dark"
     page.click("button[data-theme-choix=auto]")
     assert page.evaluate("document.documentElement.dataset.theme") is None
+    # revenir aux vraies données : depuis Réglages, ou en touchant le badge « Simulation × »
+    page.click("#simpill")
+    assert page.is_hidden("#simpill")
+    page.wait_for_selector("#client-id")
     assert not page.erreurs, page.erreurs
     ctx.close()
 
@@ -424,10 +434,73 @@ def test_notifications_app_fermee_sans_relais(pw, navigateur, serveur):
     ctx, page = ouvrir(pw, navigateur, serveur, "Pixel 7")
     ctx.grant_permissions(["notifications"], origin=serveur)
     page.goto(serveur + "/#reglages")
-    page.click(".seg [data-mode=sim]")
+    page.click("#view button[data-mode=sim] >> nth=0")
     page.evaluate("location.hash = 'reglages'")
     page.click("#notif-push")
     page.wait_for_selector("text=Le relais n'est pas encore en ligne")
+    ctx.close()
+
+
+PIEGE = '<img src=x onerror="window.__xss=1"><script>window.__xss=2</script>'
+
+
+def test_un_texte_piege_dans_le_tableau_n_est_jamais_execute(pw, navigateur, serveur):
+    """Données protégées : un texte malveillant écrit dans le tableau s'affiche comme du texte, jamais comme du code."""
+    ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
+
+    def pieger(g):
+        texte = {"Décisions & Questions": [1, 4, 5, 6], "Projets": [2, 3, 4, 5, 17, 19, 21], "Parler à l'Usine": [1, 3], "État du moteur": [3]}
+        for onglet, cols in texte.items():
+            for ligne in g.lignes[onglet]:
+                for c in cols:
+                    ligne[c] = ligne[c] + PIEGE
+        g.lignes["Projets"][0][2] = "Projet <b>Gras</b>" + PIEGE
+    connecter(page, serveur, pieger)
+    vus, file = set(), ["accueil"]
+    while file and len(vus) < 200:  # chaque écran atteignable
+        h = file.pop(0)
+        if h in vus:
+            continue
+        vus.add(h)
+        verifier_ecran(page, h)
+        injecte = page.evaluate("[...document.querySelectorAll('#view img[src=x], #view script, #view b')].filter(e => e.tagName !== 'B' || e.textContent === 'Gras').map(e => e.outerHTML.slice(0, 120))")
+        assert injecte == [], (h, injecte)
+        file += [l for l in page.eval_on_selector_all("a[href^='#']", "els => els.map(e => e.getAttribute('href').slice(1))") if l and l not in vus]
+    assert len(vus) > 25, len(vus)
+    assert page.evaluate("window.__xss") is None
+    ctx.close()
+
+
+def test_l_app_ne_parle_qu_a_google(pw, navigateur, serveur):
+    """Aucune connexion vers un autre service : l'app elle-même, et les API Google avec votre compte."""
+    ctx, page = ouvrir(pw, navigateur, serveur, "Pixel 7")
+    hotes = set()
+    page.on("request", lambda r: hotes.add(urlparse(r.url).hostname))
+    connecter(page, serveur)
+    parcourir(page, limite=60)
+    autorises = {"127.0.0.1", "accounts.google.com", "sheets.googleapis.com", "www.googleapis.com", "oauth2.googleapis.com"}
+    assert hotes <= autorises, hotes - autorises
+    ctx.close()
+
+
+def test_rien_de_vos_donnees_ne_reste_sur_le_telephone(pw, navigateur, serveur):
+    ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
+    page.goto(serveur + "/")
+    page.evaluate("navigator.serviceWorker.ready")
+    connecter(page, serveur)
+    parcourir(page, limite=40)
+    page.wait_for_timeout(500)
+    stock = page.evaluate("""async () => {
+        const caches_ = [];
+        for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) caches_.push(r.url);
+        return {local: Object.entries(localStorage), session: Object.entries(sessionStorage), caches: caches_};
+    }""")
+    texte = json.dumps(stock, ensure_ascii=False)
+    for donnee in ("Projet Exemple", "TEST-P900", "Valider", "L'étude avance", "FAUX-JETON", "ID-TABLEAU-TEST", "Veille"):
+        assert donnee not in texte, donnee
+    assert stock["caches"], "le cache hors ligne garde les fichiers de l'app"
+    for url in stock["caches"]:  # seulement les fichiers de l'app, jamais une réponse de Google
+        assert url.startswith(serveur + "/") and not re.search(r"googleapis|/api/", url), url
     ctx.close()
 
 
@@ -439,7 +512,7 @@ def test_captures(pw, navigateur, serveur):
     for appareil in APPAREILS:
         ctx, page = ouvrir(pw, navigateur, serveur, appareil)
         page.goto(serveur + "/")
-        page.click(".seg [data-mode=sim]")
+        page.click("#view button[data-mode=sim] >> nth=0")
         for h in ("accueil", "projets", "equipe", "decisions", "reglages"):
             page.evaluate("h => { location.hash = h; }", h)
             page.wait_for_timeout(150)

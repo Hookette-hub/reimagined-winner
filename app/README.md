@@ -12,7 +12,7 @@ décision vous attend. C'est le QG validé de l'Usine (`usine-a-projets/app-qg`)
 | Décisions | une boîte « À décider » en haut de l'accueil ; valider en deux touchers, ou lire le résumé et demander des corrections |
 | Notifications | app ouverte ou en arrière-plan : une notification par nouvelle décision ou problème grave, pastille sur l'icône |
 | Notifications app fermée | prêtes, mais demandent la mise en ligne (Cloudflare) et le petit script Google du tableau |
-| Navigation | barre d'onglets en bas (Accueil, Décisions, Projets, Équipe, Réglages), mode sombre, chargement animé |
+| Navigation | un écran = une idée ; onglets en bas (Accueil, Décisions, Projets, Équipe, Réglages) ; clair ou sombre |
 
 ## Comment c'est construit
 
@@ -37,9 +37,12 @@ téléphone ──(connexion Google, 1 h)──▶ API Google Sheets / Drive (li
 - **Le jeton Google reste en mémoire** (fermer l'app = se reconnecter) et seul `google.js` le touche.
 - **Seul l'environnement TEST** est ouvert (le tableau dont le nom commence par « TEST »).
 - En-têtes de sécurité stricts (`public/_headers`), même règle dans la page, cache hors ligne limité aux fichiers de l'app.
-- Vérifié à chaque envoi par `tests/test_securite.py`.
+- **Données protégées** : un texte piégé écrit dans le tableau s'affiche comme du texte, jamais comme du code ;
+  rien de vos données ne reste sur le téléphone (ni stockage, ni cache) ; l'app ne parle qu'à Google.
+- Vérifié à chaque envoi (GitHub Actions) par `tests/test_securite.py` (règles du code) et `tests/test_ecrans.py`
+  (texte piégé sur chaque écran, connexions autorisées, rien gardé sur le téléphone, jeton jamais enregistré).
 
-## Ce que vous devez faire vous-même (l'app le rappelle dans Réglages)
+## Ce que vous devez faire vous-même (l'app le rappelle dans Réglages, « Mise en route »)
 
 1. **Créer un compte Cloudflare** (gratuit, sans carte) sur dash.cloudflare.com. Dites-moi « c'est fait ».
 2. **Me dire « oui » pour la mise en ligne.** Je relie alors ce dépôt à Cloudflare Pages

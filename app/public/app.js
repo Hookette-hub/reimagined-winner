@@ -85,7 +85,7 @@ const ICON = {
   idee:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/></svg>',
   trou:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16v.5"/></svg>',
 };
-const tile = (href, ic, titre, ligne, cls = "") => `<a class="tile ${cls}" href="#${href}"><span class="ic">${ICON[ic]}</span><span class="tx"><b>${titre}</b><span>${ligne}</span></span><span class="go">›</span></a>`;
+const tile = (href, ic, titre, ligne, cls = "") => `<a class="tile ${cls}" href="#${esc(href)}"><span class="ic">${ICON[ic]}</span><span class="tx"><b>${esc(titre)}</b><span>${esc(ligne)}</span></span><span class="go">›</span></a>`;
 const kpi = (k, v, cls = "") => `<div class="kpi"><div class="k">${k}</div><div class="v ${cls}">${v}</div></div>`;
 const stepsMini = (k, arr) => `<div class="steps">${ETAPES.map((_, j) => `<i class="${arr ? "" : j < k ? "done" : j === k ? "now" : ""}"></i>`).join("")}</div>`;
 const stepsBig = (k, arr) => `<div class="stepbig">${ETAPES.map((e, j) => `<div class="${arr ? "" : j < k ? "done" : j === k ? "now" : ""}"><span>${j < k && !arr ? "✓" : j + 1}</span>${e}</div>`).join("")}</div>`;
@@ -170,7 +170,7 @@ function barsSignes(vals, label){
     ${MOIS.map((m, i) => `<text x="${L + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${m}</text>`).join("")}
     ${vals[11] != null ? `<text x="${L + 11 * bw + bw / 2}" y="${(vals[11] >= 0 ? Y(vals[11]) - 6 : Y(vals[11]) + 14)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)" font-family="var(--f-num)">${signe(vals[11])}</text>` : ""}</svg></div>`;
 }
-const tileS = (href, ic, titre, ligne, vals, color, cls = "") => `<a class="tile ${cls}" href="#${href}"><span class="ic">${ICON[ic]}</span><span class="tx"><b>${titre}</b><span>${ligne}</span>${vals ? tendance(vals) : ""}</span>${vals ? spark(vals, color) : ""}<span class="go">›</span></a>`;
+const tileS = (href, ic, titre, ligne, vals, color, cls = "") => `<a class="tile ${cls}" href="#${esc(href)}"><span class="ic">${ICON[ic]}</span><span class="tx"><b>${esc(titre)}</b><span>${esc(ligne)}</span>${vals ? tendance(vals) : ""}</span>${vals ? spark(vals, color) : ""}<span class="go">›</span></a>`;
 const dernier = a => { const v = a.filter(x => x != null); return v.length ? v.at(-1) : null; };
 
 /* Petit lecteur Markdown pour le résumé d'une page (titres, listes, gras, liens) */
@@ -486,20 +486,16 @@ const VUES = {
     const fiches = M.biblio.fiches.filter(f => /valid/i.test(f.statut)).length;
     const pret = (M.usine.pret.find(r => r.Nom === "Décision") || {})["État"];
     return { crumbs: [], html: `
-      <div class="hello"><div><div class="date">${esc(aujourdhui())}</div><h1>Bonjour, Président</h1></div><span class="sub">Chaque clic vous emmène un peu plus loin.</span></div>
-      <div class="verdict"><span class="big">${v.ic}</span><div><b>${esc(v.t)}</b><span class="sub">${esc(v.s)}</span></div></div>
+      <div class="hello"><div class="date">${esc(aujourdhui())}</div><h1>Bonjour, Président</h1></div>
+      <div class="verdict ${v.ic === "📉" ? "bas" : ""}"><span class="big">${ICON[v.ic === "🛠️" ? "travail" : "argent"]}</span><div><b>${esc(v.t)}</b><span class="sub">${esc(d.length ? v.s.replace(" " + attend(d.length), "").replace(attend(d.length), "") : v.s)}</span></div></div>
       ${boiteDecisions(d)}
       ${inviterNotifications()}
+      ${d.length ? "" : `<div class="calme">${ICON.decide}<div><b>Rien à décider, tout roule.</b><span class="sub">Vous serez prévenu dès qu'une décision vous attend.</span></div></div>`}
       <div class="tiles">
-        ${d.length ? "" : tile("decisions", "decide", "Rien à décider, tout roule", "L'équipe avance. Vous serez prévenu dès qu'une décision vous attend.", "big")}
-        ${tileS("projets", "projets", "Mes projets", `${act.length} en cours · ${points(vs) ? (dernier(vs) || 0).toLocaleString("fr-FR") + " visiteurs ce mois" : "aucun site en ligne"}`, points(vs) ? vs : M.projets.length ? MOISK.map((k, i) => M.projets.filter(p => p.couts[i] != null || (p.creation || "9").slice(0, 7) <= k).length || null) : null, "var(--rev)", "big")}
-        ${tileS("equipe", "equipe", "Mon équipe", `${M.agents.length} employés${q != null ? ` · qualité ${q} / 100` : ""}`, qs, "var(--rev)", "big")}
-        ${tileS("argent", "argent", "Mon argent", bs.some(x => x) ? `Bénéfice du mois : ${signe(bs[11] || 0)}` : `Dépenses du mois : ${eur(M.argent.dep || 0)}${M.argent.ia != null ? " + " + usd(M.argent.ia) + " d'IA" : ""}`, bs.some(x => x) ? bs : coutSerie(), bs.some(x => x) ? "var(--good)" : "var(--cost)", "big")}
-        ${tile("biblio", "livre", "La Bibliothèque", `${fiches} fiche${fiches > 1 ? "s" : ""} validée${fiches > 1 ? "s" : ""} · ${M.biblio.lacunes.filter(l => !/r[ée]solu/i.test(l.statut)).length} manque à combler`, "big")}
-        ${tile("usine", "usine", "L'Usine (les coulisses)", `Santé, outils, calendrier${pret ? ` · prête pour le réel : ${pret === "OUI" ? "oui" : "pas encore"}` : ""}`, "big")}
+        ${tileS("argent", "argent", "Mon argent", bs.some(x => x) ? `Bénéfice du mois : ${signe(bs[11] || 0)}` : `Dépenses du mois : ${eur(M.argent.dep || 0)}${M.argent.ia != null ? " + " + usd(M.argent.ia) + " d'IA" : ""}`, bs.some(x => x) ? bs : coutSerie(), bs.some(x => x) ? "var(--good)" : "var(--cost)")}
+        ${tile("biblio", "livre", "La Bibliothèque", `${fiches} fiche${fiches > 1 ? "s" : ""} validée${fiches > 1 ? "s" : ""} · ${M.biblio.lacunes.filter(l => !/r[ée]solu/i.test(l.statut)).length} manque à combler`)}
+        ${tile("usine", "usine", "L'Usine (les coulisses)", `Santé, outils, calendrier${pret ? ` · prête pour le réel : ${pret === "OUI" ? "oui" : "pas encore"}` : ""}`)}
       </div>
-      <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h2>Cette semaine</h2><span class="sub">ce que chaque employé a fait</span></div>
-        ${M.fil.length ? `<ul class="feed">${M.fil.slice(0, 12).map(f => `<li><span class="avatar">${esc(prenomDe(f.agent)[0])}</span><span class="tx"><a href="#equipe.${esc(f.agent)}" style="color:inherit;font-weight:700;text-decoration:none">${esc(prenomDe(f.agent))}</a> ${esc(f.texte)}</span><span class="when">${esc(fmtD(f.date))}</span></li>`).join("")}</ul>${M.fil.length > 12 ? `<p class="sub" style="margin:8px 0 0">Et ${M.fil.length - 12} autre${M.fil.length > 13 ? "s" : ""} travaux : voyez « Son travail » de chaque employé.</p>` : ""}` : vide(M.qgAbsent ? "Le fil de la semaine arrivera avec la prochaine mise à jour du moteur." : "Rien de nouveau cette semaine.")}</div>
       ${pied()}`};
   },
   decisions(){
@@ -596,7 +592,9 @@ const VUES = {
         <div class="kpi"><div class="k">Tâches faites ce mois</div><div class="v">${dernier(ts) ?? 0}</div>${tendance(ts)}${spark(ts)}</div>
         <div class="kpi"><div class="k">Coût de l'équipe ce mois</div><div class="v">${usd(M.argent.ia ?? dernier(cs) ?? 0)}</div>${tendance(cs, true)}${spark(cs, "var(--cost)")}</div>
       </div>
-      <div class="tiles">${services().map(([s, l], i) => tileS(`equipe.service-${i}`, "equipe", s, l.map(a => a.prenom).join(", "), qualSerie(l), "var(--rev)")).join("")}</div>`};
+      <div class="tiles">${services().map(([s, l], i) => tileS(`equipe.service-${i}`, "equipe", s, l.map(a => a.prenom).join(", "), qualSerie(l), "var(--rev)")).join("")}</div>
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h2>Cette semaine</h2><span class="sub">ce que chaque employé a fait</span></div>
+        ${M.fil.length ? `<ul class="feed">${M.fil.slice(0, 8).map(f => `<li><span class="avatar">${esc(prenomDe(f.agent)[0])}</span><span class="tx"><a href="#equipe.${esc(f.agent)}" style="color:inherit;font-weight:700;text-decoration:none">${esc(prenomDe(f.agent))}</a> ${esc(f.texte)}</span><span class="when">${esc(fmtD(f.date))}</span></li>`).join("")}</ul>${M.fil.length > 8 ? `<p class="sub" style="margin:8px 0 0">Et ${M.fil.length - 8} autre${M.fil.length > 9 ? "s" : ""} travaux : voyez « Son travail » de chaque employé.</p>` : ""}` : vide(M.qgAbsent ? "Le fil de la semaine arrivera avec la prochaine mise à jour du moteur." : "Rien de nouveau cette semaine.")}</div>`};
   },
   service(i){
     const [s, l] = services()[i] || [];
@@ -663,7 +661,7 @@ const VUES = {
       <div class="tiles">
         ${tileS("argent.ensemble", "evol", "Vue d'ensemble", vend ? `Sur 12 mois : ${signe(sum(r) - sum(c))}` : "Revenus, dépenses et IA sur 12 mois", vend ? bs : ia, vend ? "var(--good)" : "var(--cost)")}
         ${tile("argent.projets", "projets", "Par projet", "Lequel rapporte, lequel coûte")}
-        ${tile("argent.objectif", "objectif", "Mon objectif", M.argent.objectif ? esc(M.argent.objectif) : "Pas encore fixé : à vous de le choisir")}
+        ${tile("argent.objectif", "objectif", "Mon objectif", M.argent.objectif ? M.argent.objectif : "Pas encore fixé : à vous de le choisir")}
         ${tile("argent.depenses", "rapports", "Dépenses détaillées", "IA, domaines, hébergement, outils")}
       </div>`};
   },
@@ -775,7 +773,7 @@ const VUES = {
     const ia = M.argent.coutIA;
     return { crumbs: [["L'Usine"]], html: `<div><h1>L'Usine (les coulisses)</h1><p class="lead">Comment la machine tourne. Rien ici ne vous demande d'agir : l'équipe s'en occupe.</p>${journeeSimulee() ? `<p class="sub" style="margin:4px 0 0">${esc(journeeSimulee())} (la date où en est le moteur du test, différente de la date du jour).</p>` : ""}</div>
       <div class="tiles">
-        ${tile("usine.sante", "sante", "Santé et sécurité", sec["État"] ? esc(sec["État"]) : "Les contrôles du jour")}
+        ${tile("usine.sante", "sante", "Santé et sécurité", sec["État"] ? sec["État"] : "Les contrôles du jour")}
         ${tile("usine.outils", "outils", "Outils", `${M.usine.outils.length} outils, chacun avec un secours`)}
         ${tile("usine.calendrier", "calendrier", "Calendrier", "La semaine en 7 colonnes")}
         ${tileS("usine.qualite", "qualite", "Qualité des agents", dernier(q) != null ? `Moyenne ${dernier(q)} / 100` : "Les dernières notes", q, "var(--rev)")}
@@ -834,42 +832,51 @@ function boiteDecisions(d){
   if (!d.length) return "";
   return `<section class="inbox" aria-label="À décider"><div class="inbox-h"><h2>À décider</h2><span class="count">${d.length}</span></div>
     ${noteEcran("decisions")}
-    ${d.slice(0, 5).map(x => `<article class="dcard ${x.cat === 5 ? "grave" : ""}"><div class="dtop"><span class="pill ${x.cat === 5 ? "bad" : "info"}">${esc(CATS_COURTS[x.cat] || "Décision")}</span><span class="sub">${esc(fmtD(x.date))}${x.qui ? " · " + esc(x.qui) : ""}</span></div>
+    ${d.slice(0, 3).map(x => `<article class="dcard ${x.cat === 5 ? "grave" : ""}"><div class="dtop"><span class="pill ${x.cat === 5 ? "bad" : "info"}">${esc(CATS_COURTS[x.cat] || "Décision")}</span><span class="sub">${esc(fmtD(x.date))}${x.qui ? " · " + esc(x.qui) : ""}</span></div>
       <b>${esc(x.titre)}</b><p>${esc(x.texte.slice(0, 150))}${x.texte.length > 150 ? "…" : ""}</p>
       <div class="dact">${x.cat === 5 ? "" : `<button class="btn primary" data-vite="${x.n}">${esc(x.options[0] && x.options[0].length < 24 ? x.options[0] : "Valider")}</button>`}<a class="btn" href="#${lienDecision(x)}">Lire et décider</a></div></article>`).join("")}
-    ${d.length > 5 ? `<a class="btn" href="#decisions" style="align-self:flex-start">Voir les ${d.length} décisions</a>` : ""}</section>`;
+    ${d.length > 3 ? `<a class="btn" href="#decisions" style="align-self:flex-start">Voir les ${d.length} décisions</a>` : ""}</section>`;
 }
 function inviterNotifications(){
   const A = window.QG_ALERTES; if (!A) return "";
   const e = A.etat(); if (e.permission !== "default" || (!e.support && !e.ios)) return "";
-  if (!e.support) return e.installee ? "" : `<div class="banner info"><span>Pour être prévenu quand une décision vous attend, installez d'abord l'app sur l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).</span><a class="btn" href="#reglages">Comment faire</a></div>`;
+  if (!e.support) return e.installee ? "" : `<div class="banner info"><span>Pour être prévenu quand une décision vous attend, installez d'abord l'app sur l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).</span><a class="btn" href="#demarrage">Comment faire</a></div>`;
   return `<div class="banner info"><span>Être prévenu sur ce téléphone quand une décision vous attend ?</span><button class="btn primary" id="notif-activer">Activer</button></div>`;
 }
 const fait = (ok, texte) => `<span class="pill ${ok ? "good" : "warn"}">${ok ? "Fait" : texte || "À faire"}</span>`;
+function etatMiseEnRoute(){
+  const A = window.QG_ALERTES, e = A ? A.etat() : {};
+  const enLigne = location.protocol === "https:" && !/^(localhost|127\.)/.test(location.hostname);
+  const client = G.idClientValide(G.idClient()), co = G.connecte();
+  return {e, client, co, faits: [enLigne, client && co, !!e.installee, e.permission === "granted"]};
+}
 VUES.reglages = function(){
-  const A = window.QG_ALERTES, e = A ? A.etat() : {}, enLigne = location.protocol === "https:" && !/^(localhost|127\.)/.test(location.hostname);
-  const client = G.idClientValide(G.idClient()), co = G.connecte(), theme = THEME();
+  const {e, faits} = etatMiseEnRoute(), theme = THEME(), reste = faits.filter(x => !x).length;
   const perm = e.permission === "granted" ? "Activées sur ce téléphone." : e.permission === "denied" ? "Refusées : rouvrez-les dans les réglages du téléphone (Notifications, Mon QG)." :
-    !e.support ? (e.ios && !e.installee ? "Sur iPhone, les notifications marchent une fois l'app installée sur l'écran d'accueil." : "Ce navigateur ne sait pas afficher de notifications.") : "Pas encore activées.";
-  const etape = (n, titre, ok, texte, action = "") => `<li class="${ok ? "done" : ""}"><span class="num-rond">${ok ? "✓" : n}</span><div><div class="et-h"><b>${titre}</b>${fait(ok)}</div><p class="sub" style="margin:4px 0 0">${texte}</p>${action}</div></li>`;
-  return { crumbs: [["Réglages"]], html: `<div><h1>Réglages</h1><p class="lead">Notifications, apparence, et ce que vous devez faire vous-même pour mettre l'app en route.</p></div>
+    !e.support ? (e.ios && !e.installee ? "Sur iPhone, elles marchent une fois l'app installée sur l'écran d'accueil." : "Ce navigateur ne sait pas afficher de notifications.") : "Pas encore activées.";
+  return { crumbs: [["Réglages"]], html: `<div><h1>Réglages</h1></div>
     ${noteEcran("reglages")}
-    <div class="card stack"><h2>Notifications</h2><p class="sub" style="margin:0">${perm}</p>
-      <div class="row-btns">${e.support && e.permission !== "granted" && e.permission !== "denied" ? `<button class="btn primary" id="notif-activer">Activer les notifications</button>` : ""}${e.permission === "granted" ? `<button class="btn" id="notif-tester">Envoyer une notification de test</button>` : ""}</div>
-      <p class="sub" style="margin:0"><b>App ouverte ou en arrière-plan</b> : le QG relit le tableau toutes les 3 minutes et vous prévient de chaque nouvelle décision (et d'un problème grave). La pastille sur l'icône donne le nombre de décisions qui attendent.</p>
-      <p class="sub" style="margin:0"><b>App fermée</b> : ${e.appFermee ? "activé sur ce téléphone." : "demande l'app en ligne (Cloudflare) et le petit script Google du tableau : voir l'étape 5 ci-dessous."}</p>
-      ${e.push ? `<div class="row-btns">${e.appFermee ? `<button class="btn" id="notif-push-stop">Arrêter les notifications app fermée</button>` : `<button class="btn" id="notif-push">Activer les notifications app fermée</button>`}</div>` : ""}</div>
+    ${tile("demarrage", "pret", "Mise en route", reste ? `${reste} étape${reste > 1 ? "s" : ""} à faire vous-même` : "Tout est fait.")}
+    <div class="card stack"><h2>Notifications</h2><p class="sub" style="margin:0">${perm} Vous êtes prévenu de chaque nouvelle décision et de tout problème grave.</p>
+      <div class="row-btns">${e.support && e.permission === "default" ? `<button class="btn primary" id="notif-activer">Activer les notifications</button>` : ""}${e.permission === "granted" ? `<button class="btn" id="notif-tester">Essayer</button>` : ""}</div>
+      ${e.push ? `<div class="ligne-reglage"><span><b>Même app fermée</b><span class="sub">${e.appFermee ? "Activé sur ce téléphone." : "Après la mise en ligne et le script Google."}</span></span>${e.appFermee ? `<button class="btn" id="notif-push-stop">Arrêter</button>` : `<button class="btn" id="notif-push">Activer</button>`}</div>` : ""}</div>
+    <div class="card stack"><h2>Données affichées</h2><div class="seg seg-l" role="group" aria-label="Données affichées"><button data-mode="reel" aria-pressed="${MODE === "reel"}">Vraies données</button><button data-mode="sim" aria-pressed="${MODE === "sim"}">Simulation</button></div>
+      <p class="sub" style="margin:0">La Simulation montre l'app avec des données d'exemple. Rien n'est envoyé.</p></div>
     <div class="card stack"><h2>Apparence</h2><div class="seg seg-l" role="group" aria-label="Thème">${[["auto","Comme le téléphone"],["light","Clair"],["dark","Sombre"]].map(([k, t]) => `<button data-theme-choix="${k}" aria-pressed="${theme === k}">${t}</button>`).join("")}</div></div>
-    <div class="card stack"><h2>Ce que vous devez faire vous-même</h2><p class="sub" style="margin:0">Tant que ce n'est pas fait, l'app marche en Simulation. Rien n'est payant.</p>
-      <ol class="etapes">
-        ${etape(1, "Créer un compte Cloudflare (gratuit)", enLigne, "Sur dash.cloudflare.com, « Sign up », avec votre e-mail. Aucune carte bancaire. Dites-moi ensuite « c'est fait » : je prépare la mise en ligne, et je ne la lance qu'avec votre « oui ».")}
-        ${etape(2, "Donner l'autorisation Google", client && co, client ? (co ? "Connecté : l'app lit et écrit votre tableau TEST avec votre compte." : "L'ID client est enregistré. Il reste à vous connecter.") : "Dans Google Cloud (Google Auth Platform, Clients, « Client Web 1 »), ajoutez l'adresse de l'app, puis collez ici l'ID client et connectez-vous. Je vous donnerai l'adresse exacte après la mise en ligne.",
-          client && !co ? `<button class="btn primary" id="connexion" style="margin-top:8px">Se connecter avec Google</button>` : "")}
-        ${etape(3, "Installer l'app sur l'écran d'accueil", e.installee, e.ios ? "Dans Safari : bouton Partager, puis « Sur l'écran d'accueil », puis Ajouter." : "Dans Chrome : menu ⋮, puis « Installer l'application ».")}
-        ${etape(4, "Activer les notifications", e.permission === "granted", "Un bouton plus haut sur cette page. Sur iPhone, faites-le depuis l'app installée (étape 3).")}
-        ${etape(5, "Notifications même app fermée (facultatif)", !!e.appFermee, "Dans le tableau TEST : Extensions, Apps Script, collez le script « Mon QG » que je vous donne, mettez l'adresse de l'app, puis lancez « installer » et acceptez. Ensuite, le bouton « Activer les notifications app fermée » plus haut.")}
-      </ol></div>
-    <p class="foot">Mon QG ne garde rien de vos données sur le téléphone. La connexion Google dure une heure et n'est jamais enregistrée.</p>`};
+    <p class="foot">Mon QG ne garde aucune de vos données sur le téléphone. La connexion Google dure une heure et n'est jamais enregistrée.</p>`};
+};
+VUES.demarrage = function(){
+  const {e, client, co, faits} = etatMiseEnRoute();
+  const etape = (n, titre, ok, texte, action = "") => `<li class="${ok ? "done" : ""}"><span class="num-rond">${ok ? "✓" : n}</span><div><div class="et-h"><b>${titre}</b>${fait(ok)}</div><p class="sub" style="margin:4px 0 0">${texte}</p>${action}</div></li>`;
+  return { crumbs: [["Réglages", "reglages"], ["Mise en route"]], html: `<div><h1>Mise en route</h1><p class="lead">Ce que vous devez faire vous-même, une seule fois. Rien n'est payant.</p></div>
+    <div class="card"><ol class="etapes">
+      ${etape(1, "Créer un compte Cloudflare (gratuit)", faits[0], "Sur dash.cloudflare.com, « Sign up ». Aucune carte bancaire. Dites-moi ensuite « c'est fait » : je prépare la mise en ligne et ne la lance qu'avec votre « oui ».")}
+      ${etape(2, "Donner l'autorisation Google", faits[1], client ? (co ? "Connecté : l'app lit et écrit votre tableau TEST avec votre compte." : "L'ID client est enregistré. Il reste à vous connecter.") : "Dans Google Cloud (Clients, « Client Web 1 »), ajoutez l'adresse de l'app, puis collez ici l'ID client et connectez-vous. Je vous donnerai l'adresse exacte après la mise en ligne.",
+        client && !co ? `<button class="btn primary" id="connexion" style="margin-top:8px">Se connecter avec Google</button>` : "")}
+      ${etape(3, "Installer l'app sur l'écran d'accueil", faits[2], e.ios ? "Dans Safari : bouton Partager, puis « Sur l'écran d'accueil », puis Ajouter." : "Dans Chrome : menu ⋮, puis « Installer l'application ».")}
+      ${etape(4, "Activer les notifications", faits[3], "Dans Réglages. Sur iPhone, depuis l'app installée (étape 3).")}
+      ${etape(5, "Être prévenu même app fermée (facultatif)", !!e.appFermee, "Dans le tableau TEST : Extensions, Apps Script, collez le script « Mon QG » que je vous donne, puis lancez « installer ». Ensuite, dans Réglages, « Même app fermée ».")}
+    </ol></div>`};
 };
 const THEME = () => { try { return localStorage.getItem("qg-theme") || "auto"; } catch(e){ return "auto"; } };
 function appliquerTheme(t){
@@ -906,7 +913,7 @@ async function chargerResume(id){
   route(true);
 }
 function pied(){
-  if (enSim()) return `<p class="foot">Simulation : données d'exemple sur 12 mois, rien n'est envoyé. Repassez en « Réel » pour vos vraies données.</p>`;
+  if (enSim()) return `<p class="foot">Simulation : données d'exemple sur 12 mois, rien n'est envoyé. Touchez « Simulation × » en haut pour revenir à vos vraies données.</p>`;
   const min = S.at ? Math.max(0, Math.round((Date.now() - S.at) / 60000)) : null;
   return `<p class="foot">Vraies données de l'Usine (environnement de test), lues dans votre tableau${min != null ? ` il y a ${min} min` : ""}. <button class="btn" id="deconnexion" style="padding:4px 10px;font-size:12px">Se déconnecter</button></p>`;
 }
@@ -960,14 +967,13 @@ function route(garderScroll){
 }
 /* Barre d'onglets en bas : l'onglet ouvert, et la pastille du nombre de décisions qui attendent. */
 function onglets(section, nbDecisions){
-  const actif = section === "projets" && /\.decision$/.test(location.hash) ? "decisions" : section;
+  const actif = section === "projets" && /\.decision$/.test(location.hash) ? "decisions" : section === "demarrage" ? "reglages" : section;
   document.querySelectorAll("#tabs [data-tab]").forEach(a => { const on = a.dataset.tab === actif; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
   const b = $("#tab-badge"); if (b){ b.hidden = !nbDecisions; b.textContent = nbDecisions > 9 ? "9+" : String(nbDecisions || ""); }
 }
 let persoV = 0;
 function setMode(m){
   MODE = m; try { localStorage.setItem("qg-usine-mode", m); } catch(e) {}
-  document.querySelectorAll(".seg [data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
   $("#simpill").hidden = m !== "sim"; M = null; route();
 }
 
@@ -1076,7 +1082,6 @@ function demarrer(){
 let timer = 0;
 const planifier = () => { clearTimeout(timer); timer = setTimeout(() => { if (MODE === "reel") route(true); }, 60); };
 window.addEventListener("hashchange", () => { Object.keys(notes).forEach(k => { if (notes[k].t0 && Date.now() - notes[k].t0 > 1500) delete notes[k]; }); route(); });
-document.querySelectorAll(".seg [data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === MODE)));
 $("#simpill").hidden = MODE !== "sim";
 route();
 mcp = G.connecte() ? G.mcp : null;
