@@ -58,7 +58,7 @@ def test_seul_l_environnement_test_est_ouvert():
 
 def test_scripts_locaux_seulement_et_en_tetes_de_securite():
     html = APP_TEXTES["index.html"]
-    assert re.findall(r"<script src=\"([^\"]+)\"", html) == ["/google.js", "/alertes.js", "/app.js", "/installer.js"]
+    assert re.findall(r"<script src=\"([^\"]+)\"", html) == ["/google.js", "/alertes.js", "/verrou.js", "/app.js", "/installer.js"]
     assert "<script>" not in html and not re.search(r"\son[a-z]+=", html)
     entetes = APP_TEXTES["_headers"]
     for e in ("Content-Security-Policy: default-src 'none'; script-src 'self';", "Strict-Transport-Security", "X-Content-Type-Options: nosniff",

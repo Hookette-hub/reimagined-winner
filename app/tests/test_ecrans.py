@@ -485,6 +485,41 @@ def test_notifications_app_fermee_sans_relais(pw, navigateur, serveur):
     ctx.close()
 
 
+def test_verrou_face_id_ou_code(pw, navigateur, serveur):
+    """Seul vous pouvez entrer : avec le verrou, l'app demande le déverrouillage du téléphone (simulé par un appareil virtuel)."""
+    ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
+    cdp = ctx.new_cdp_session(page)
+    cdp.send("WebAuthn.enable")
+    auth = cdp.send("WebAuthn.addVirtualAuthenticator", {"options": {"protocol": "ctap2", "transport": "internal", "hasResidentKey": True,
+                                                                      "hasUserVerification": True, "isUserVerified": True, "automaticPresenceSimulation": True}})["authenticatorId"]
+    page.goto(serveur.replace("127.0.0.1", "localhost") + "/")  # une clé d'accès exige un nom de domaine
+    page.click("#view button[data-mode=sim] >> nth=0")
+    page.evaluate("location.hash = 'reglages'")
+    page.click("#verrou-on")
+    page.wait_for_selector("text=Verrou activé")
+    stock = page.evaluate("() => JSON.stringify(Object.entries(localStorage))")
+    assert "qg-verrou" in stock and "@" not in stock  # seulement le numéro de la clé
+    page.reload()
+    page.wait_for_selector(".verrou")
+    assert page.get_attribute("#view", "aria-hidden") == "true"
+    cdp.send("WebAuthn.setUserVerified", {"authenticatorId": auth, "isUserVerified": False})  # visage ou code refusé
+    page.click("#deverrouiller")
+    page.wait_for_selector("#verrou-msg:not(:empty)")
+    assert page.is_visible(".verrou")
+    cdp.send("WebAuthn.setUserVerified", {"authenticatorId": auth, "isUserVerified": True})
+    page.click("#deverrouiller")
+    page.wait_for_selector(".verrou", state="detached")
+    page.evaluate("location.hash = 'reglages'")
+    page.click("#verrou-off")
+    page.click("#verrou-off")
+    page.wait_for_selector("text=Verrou retiré")
+    page.reload()
+    page.wait_for_selector("text=Activer le verrou")
+    assert not page.is_visible(".verrou")
+    assert not page.erreurs, page.erreurs
+    ctx.close()
+
+
 PIEGE = '<img src=x onerror="window.__xss=1"><script>window.__xss=2</script>'
 
 

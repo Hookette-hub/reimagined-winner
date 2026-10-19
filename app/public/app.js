@@ -1028,6 +1028,7 @@ VUES.reglages = function(){
   return { crumbs: [["Réglages"]], html: `<div><h1>Réglages</h1></div>
     ${noteEcran("reglages")}
     ${tile("demarrage", "pret", "Mise en route", reste ? `${reste} étape${reste > 1 ? "s" : ""} à faire vous-même` : "Tout est fait.")}
+    ${verrouHtml()}
     <div class="card stack"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h2>Mode</h2>${bloque("TEST · réel bloqué")}</div><p class="sub" style="margin:0">Passer en réel est votre décision : demandez-le depuis Argent.</p></div>
     <div class="card stack"><h2>Budget IA par jour</h2><p class="sub" style="margin:0">${esc(M.argent.iaPlafond || "Pas encore fixé.")}</p>
       <form class="form2" data-budget="1"><input id="budget-jour" inputmode="decimal" aria-label="Dollars par jour" placeholder="Dollars par jour, ex. 2"><button class="btn">Changer</button></form></div>
@@ -1042,6 +1043,19 @@ VUES.reglages = function(){
     <div class="card stack"><h2>Apparence</h2><div class="seg seg-l" role="group" aria-label="Thème">${[["auto","Comme le téléphone"],["light","Clair"],["dark","Sombre"]].map(([k, t]) => `<button data-theme-choix="${k}" aria-pressed="${theme === k}">${t}</button>`).join("")}</div></div>
     <p class="foot">Mon QG ne garde aucune de vos données sur le téléphone. La connexion Google dure une heure et n'est jamais enregistrée.</p>`};
 };
+/* Verrou Face ID / code (verrou.js) : seul vous pouvez entrer, même si quelqu'un a votre téléphone ouvert. */
+let verrouPossible = null;
+function verrouHtml(){
+  const V = window.QG_VERROU; if (!V) return "";
+  const actif = V.actif();
+  return `<div class="card stack"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h2>Verrou Face ID / code</h2>${actif ? `<span class="pill good">Activé</span>` : ""}</div>
+    <p class="sub" style="margin:0">${actif ? "Mon QG demande Face ID, l'empreinte ou le code du téléphone à chaque ouverture, et après 5 minutes ailleurs." : verrouPossible === false ? "Ce navigateur ne propose pas Face ID ni le code du téléphone. Sur iPhone, ouvrez l'app installée après la mise en ligne." : "Demander Face ID, l'empreinte ou le code du téléphone à chaque ouverture. L'app ne voit jamais votre visage ni votre code."}</p>
+    <div class="agir">${actif ? `<button class="btn danger" id="verrou-off">Retirer le verrou</button>` : verrouPossible ? `<button class="btn primary" id="verrou-on">Activer le verrou</button>` : ""}</div></div>`;
+}
+async function verrouAction(travail, ok){
+  try { await travail(); notes.reglages = {t: ok}; } catch(e){ notes.reglages = {t: "Ce n'est pas passé : Face ID ou le code n'a pas été confirmé.", cls: "bad"}; }
+  route(true);
+}
 VUES.demarrage = function(){
   const {e, client, co, faits} = etatMiseEnRoute();
   const etape = (n, titre, ok, texte, action = "") => `<li class="${ok ? "done" : ""}"><span class="num-rond">${ok ? "✓" : n}</span><div><div class="et-h"><b>${titre}</b>${fait(ok)}</div><p class="sub" style="margin:4px 0 0">${texte}</p>${action}</div></li>`;
@@ -1201,6 +1215,8 @@ document.addEventListener("click", e => {
   if (b.dataset.chip){ const v = b.dataset.chip; if (v.startsWith("#")){ location.hash = v.slice(1); return; } const i = $("#chat-in"); i.value = v; i.focus(); i.setSelectionRange(v.length, v.length); return; }
   if (b.dataset.arme === "revoquer"){ if (!arme(b)) return; G.seDeconnecter(); mcp = null; unsubs.forEach(u => { try { u(); } catch(e) {} }); unsubs = []; Object.keys(RANGES).forEach(k => delete S[k]); S.err = {}; notes.connexion = {t: "Accès Google coupé sur ce téléphone. Pour retirer aussi l'autorisation, ouvrez vos autorisations Google."}; location.hash = "accueil"; route(); return; }
   if (b.id === "notif-activer"){ notif(() => QG_ALERTES.activer().then(p => { if (p !== "granted"){ const e = new Error(p); e.code = "denied"; throw e; } if (M && MODE === "reel") QG_ALERTES.verifier(M.decisions); }), "Notifications activées. Vous serez prévenu quand une décision vous attend."); return; }
+  if (b.id === "verrou-on"){ verrouAction(() => QG_VERROU.activer(), "Verrou activé : Mon QG demandera Face ID ou le code à chaque ouverture."); return; }
+  if (b.id === "verrou-off"){ if (!arme(b)) return; verrouAction(() => QG_VERROU.retirer(), "Verrou retiré sur ce téléphone."); return; }
   if (b.id === "notif-tester"){ notif(() => QG_ALERTES.tester(), "Notification de test envoyée."); return; }
   if (b.id === "notif-push"){ notif(() => QG_ALERTES.activerAppFermee(), "C'est prêt : vous serez prévenu même app fermée. Une notification de bienvenue arrive."); return; }
   if (b.id === "notif-push-stop"){ notif(() => QG_ALERTES.arreterAppFermee(), "Notifications app fermée arrêtées sur ce téléphone."); return; }
@@ -1285,6 +1301,7 @@ window.addEventListener("hashchange", () => {
 route();
 mcp = G.connecte() ? G.mcp : null;
 mcpPret = true;
+if (window.QG_VERROU) QG_VERROU.possible().then(v => { verrouPossible = v; if (/^#?reglages/.test(location.hash.slice(1))) route(true); });
 { const e = G.erreurRetour(); if (e) notes.connexion = {t: e, cls: "bad"}; }
 if (mcp) demarrer();
 route(true);

@@ -8,11 +8,13 @@ décision vous attend. C'est le QG validé de l'Usine (`usine-a-projets/app-qg`)
 | | |
 |---|---|
 | Installable | icône sur l'écran d'accueil, plein écran, s'ouvre sans réseau |
-| Voir le QG | accueil, projets, équipe, argent, Bibliothèque, coulisses ; « Réel » (tableau TEST) ou « Simulation » |
-| Décisions | une boîte « À décider » en haut de l'accueil ; valider en deux touchers, ou lire le résumé et demander des corrections |
+| Le cockpit | comme le modèle : verdict, ① À décider, 💬 parler à l'Usine, ② Argent (courbe à toucher, 0 € honnête en Réel), ③ Projets, ④ La machine (Agents, Fiches, Sécurité, Réglages) ; « Réel » (tableau TEST) ou « Simulation » |
+| Décisions | date, analyse, problèmes, coût et estimation, recommandation ; choisir une option en deux touchers, ou demander des corrections |
+| Agir | chaque fenêtre voit et agit : ordres à l'Usine en deux touchers (pause, pousser en réel, vidéo, valider une fiche, budget, cerveaux IA) ; le réel reste votre décision |
+| Verrou | Face ID, empreinte ou code du téléphone à l'ouverture (Réglages) ; l'app ne voit jamais votre visage ni votre code |
 | Notifications | app ouverte ou en arrière-plan : une notification par nouvelle décision ou problème grave, pastille sur l'icône |
 | Notifications app fermée | prêtes, mais demandent la mise en ligne (Cloudflare) et le petit script Google du tableau |
-| Navigation | un écran = une idée ; onglets en bas (Accueil, Décisions, Projets, Équipe, Réglages) ; clair ou sombre |
+| Navigation | un toucher = un niveau ; chaque fenêtre a « ‹ Retour » ; clair ou sombre |
 
 ## Comment c'est construit
 
