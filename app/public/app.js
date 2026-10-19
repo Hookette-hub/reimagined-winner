@@ -263,7 +263,8 @@ function construireReel(){
     return {id: p.ID, nom: p["Nom du projet"] || p.ID, type: (p.Type || "").replace(" / outil en ligne", ""), phrase: p["Problème résolu (valeur client)"] || "", concept: col(p, "Concept unique"),
       cible: p["Niche / cible"] || "", note: p["Note totale /35"], creation: p["Date création"], statut, etape, arrete, prochaine: p["Prochaine action"] || "", lienPlan: p["Lien du plan"] || "",
       visiteurs: serie(qgR("Projet mois"), p.ID, "visiteurs"), revenus: serie(qgR("Projet mois"), p.ID, "revenus"), couts: serie(qgR("Projet mois"), p.ID, "depenses"),
-      rentab: rt ? {r12: nombre(rt["Revenus estimés 12 mois (€)"]), b12: nombre(rt["Bénéfice estimé 12 mois (€)"]), pm: nombre(rt["Point mort (mois)"]), mensuel: nombre(rt["Coûts mensuels (€)"]), prix: nombre(rt["Prix / revenu par unité (€)"])} : null,
+      rentab: rt ? {r12: nombre(col(rt, "Revenus estimés 12 mois")), b12: nombre(col(rt, "Bénéfice estimé 12 mois")), pm: nombre(col(rt, "Point mort")), mensuel: nombre(col(rt, "Coûts mensuels")), prix: nombre(col(rt, "Prix")), depart: nombre(col(rt, "Coûts de départ"))} : null,
+      scores: Object.keys(p).filter(h => /\/5\b/.test(h)).map(h => [h.replace(/\s*\/5.*$/, ""), nombre(p[h])]), notes: p.Notes || "",
       objectifs: R("ob").filter(o => o.ID === p.ID).map(o => ({mois: o["Mois (1, 2, 3…)"], fin: o["Date de fin du mois"], ind: o["Indicateur (visites, inscriptions, ventes, revenus…)"], obj: o.Objectif, reel: o["Réel"], statut: o.Statut})),
       livrables: qgR("Livrable").filter(l => l.cle === p.ID).map(l => ({genre: l.per, lien: l.d.lien, version: l.d.version})),
       rapports: qgR("Rapport").filter(r => r.cle === p.ID).map(r => ({date: r.per, titre: r.d.titre, qui: r.d.auteur, texte: r.d.texte, lien: r.d.lien})).sort((a, b) => (b.date || "").localeCompare(a.date || "")),
@@ -387,18 +388,20 @@ function construireSim(){
       [["15 oct.","Trafic d'octobre","Lina (Analyste)","16 000 visiteurs (+28 %). Revenu publicitaire : 3,60 € pour 1 000 visites."]], []),
     P("P004","Juste Prix Freelance","SaaS","Calculer le bon prix de sa prestation de freelance en 2 minutes.",4,"Aperçu prêt",[N,N,N,N,N,N,N,N,0,0,0,0],[N,N,N,N,N,N,N,N,0,0,0,0],[N,N,N,N,N,N,N,N,5,6,7,8],"30 inscriptions en 14 jours",
       [["done","juil.","Idée trouvée",""],["done","sept.","Validé par vous",""],["now","16 oct.","Aperçu privé terminé","Mehdi : tous les contrôles au vert"]],
-      [["16 oct.","Aperçu prêt","Mehdi (Développeur)","Le site fonctionne sur ordinateur et téléphone. Il ne manque que votre accord."]], []),
+      [["16 oct.","Aperçu prêt","Mehdi (Développeur)","Le site fonctionne sur ordinateur et téléphone. Il ne manque que votre accord."]], [],
+      {note: "28", scores: [["Valeur client", 4], ["Demande", 4], ["Concurrence", 2], ["Rentabilité", 4], ["Originalité", 4]], notes: "Beaucoup de calculateurs gratuits en anglais", rentab: {depart: 0, mensuel: 5, prix: 9, pm: 3, r12: 1080, b12: 1020}}),
     P("P005","Feuilles Pro Arabe","Produit numérique","Des modèles Google Sheets pour les commerçants, en arabe et en français.",2,"Étude finie",[N,N,N,N,N,N,N,N,N,N,0,0],[N,N,N,N,N,N,N,N,N,N,0,0],[N,N,N,N,N,N,N,N,N,N,2,3],"Prouver qu'il existe une vraie demande",
       [["done","sept.","Idée trouvée","Yasmine"],["now","17 oct.","Étude de marché finie","Omar : 6 concurrents, presque aucun en arabe"]],
-      [["17 oct.","Résumé du projet","Omar (Chef de produit)","Des modèles de factures et de stock prêts à l'emploi pour les petits commerçants. Test proposé : 20 ventes en 30 jours, 15 € de budget."]], []),
+      [["17 oct.","Résumé du projet","Omar (Chef de produit)","Des modèles de factures et de stock prêts à l'emploi pour les petits commerçants. Test proposé : 20 ventes en 30 jours, 15 € de budget."]], [],
+      {note: "27", scores: [["Valeur client", 4], ["Demande", 3], ["Concurrence", 4], ["Rentabilité", 3], ["Originalité", 5]], notes: "Il faudra relire chaque modèle en arabe avant la vente", rentab: {depart: 15, mensuel: 0, prix: 12, pm: 2, r12: 720, b12: 705}}),
     P("P006","Image Express","SaaS","Un convertisseur d'images rapide.",5,"Arrêté",[N,0,0,90,140,160,170,N,N,N,N,N],[N,0,0,0,0,0,0,N,N,N,N,N],[N,5,7,6,5,4,3,N,N,N,N,N],"Arrêté en mai : trop de concurrents gratuits",
       [["done","déc.","Idée",""],["done","févr.","En ligne",""],["done","mai","Arrêté après le test","Leçon ajoutée à la Bibliothèque"]],
       [["mai","Pourquoi on arrête","Karim (Directeur général)","170 visiteurs après 3 mois, aucun inscrit. Leçon : vérifier la concurrence gratuite avant de construire."]], [], {arrete: true}),
   ];
   const resumeSim = "# Juste Prix Freelance\n**Quoi :** un calculateur de prix pour les freelances.\n**Pour qui :** les indépendants qui débutent.\n- Concurrence : peu d'outils en français.\n- Test : 30 inscriptions en 14 jours.\n- Budget : 0 €, tout est gratuit.";
   const decisions = [
-    {n: "s1", cat: 2, projet: "P004", titre: "Valider l'aperçu du site Juste Prix Freelance", texte: "L'aperçu privé est prêt : il fonctionne sur ordinateur et téléphone.", options: ["Valider l'aperçu", "Demander des corrections"], reco: "Valider.", resumeSim},
-    {n: "s2", cat: 1, projet: "P005", titre: "Valider le projet Feuilles Pro Arabe", texte: "Étude de marché finie : forte concurrence en anglais, presque rien en arabe.", options: ["Valider le projet", "Le garder en réserve", "Refuser"], reco: "Valider.", resumeSim: "# Feuilles Pro Arabe\n**Quoi :** des modèles de factures et de stock.\n- Pour qui : les petits commerçants.\n- Test : 20 ventes en 30 jours, 15 € de budget."},
+    {n: "s1", cat: 2, projet: "P004", date: "2026-10-16", qui: "Mehdi (Développeur)", titre: "Valider l'aperçu du site Juste Prix Freelance", texte: "L'aperçu privé est prêt : il fonctionne sur ordinateur et téléphone.", options: ["Valider l'aperçu", "Demander des corrections"], reco: "Valider.", resumeSim},
+    {n: "s2", cat: 1, projet: "P005", date: "2026-10-17", qui: "Omar (Chef de produit)", titre: "Valider le projet Feuilles Pro Arabe", texte: "Étude de marché finie : forte concurrence en anglais, presque rien en arabe.", options: ["Valider le projet", "Le garder en réserve", "Refuser"], reco: "Valider.", resumeSim: "# Feuilles Pro Arabe\n**Quoi :** des modèles de factures et de stock.\n- Pour qui : les petits commerçants.\n- Test : 20 ventes en 30 jours, 15 € de budget."},
   ];
   decisions.forEach(d => projets.find(p => p.id === d.projet).decisions.push(d));
   const SVC = {karim:"Direction", yasmine:"Recherche & Stratégie", omar:"Produit & Technique", mehdi:"Produit & Technique", nadia:"Produit & Technique", ines:"Croissance", sami:"Croissance", lina:"Finance & Performance", hamza:"Opérations"};
@@ -464,57 +467,12 @@ const journeeSimulee = () => { const d = dateD(M.jour); return d ? `Journée sim
 const de = n => /^[aeiouyhàâéèêîôûAEIOUYHÀÂÉÈÊÎÔÛ]/.test(n) ? "d'" + n : "de " + n;
 const posteCourt = p => String(p || "").replace(/\s*\(.*\)/, "");
 
-const attend = d => d > 1 ? `${d} décisions vous attendent.` : "1 décision vous attend.";
-function verdict(){
-  const d = M.decisions.length, b = benefSerie(), bm = b[11], r = totRev(), act = actifs();
-  const enVente = act.filter(p => p.revenus.some(v => v));
-  if (enVente.length && bm != null){
-    const prev = b[10];
-    return {ic: bm >= 0 ? "📈" : "📉", t: `${bm >= 0 ? "Bon mois" : "Mois difficile"} : ${signe(bm)} de bénéfice${prev ? `, ${Math.round(100 * (bm - prev) / Math.abs(prev))} % par rapport au mois dernier` : ""}.`,
-      s: `${pluriel(act.filter(p => p.etape === 6).length + " projet(s) rentable(s)")}, ${(dernier(visitSerie()) || 0).toLocaleString("fr-FR")} visiteurs ce mois.${d ? " " + attend(d) : ""}`};
-  }
-  const p = act[0];
-  const ia = M.argent.ia != null ? `${usd(M.argent.ia)} d'IA dépensés ce mois` : "";
-  return {ic: "🛠️", t: act.length ? `Mois de construction : ${act.length === 1 ? `${p.nom} avance (étape « ${ETAPES[p.etape]} »)` : `${act.length} projets avancent`}, sans encore rien vendre.` : "Pas encore de projet en cours : la Veille cherche des idées.",
-    s: `${d ? attend(d) : "Aucune décision ne vous attend."} ${ia ? ia + ", " : ""}${M.argent.dep != null ? eur(M.argent.dep) + " de dépenses pour les projets." : ""}`};
-}
-
 const VUES = {
-  accueil(){
-    const d = M.decisions, v = verdict(), act = actifs(), qs = qualSerie(), bs = benefSerie(), vs = visitSerie();
-    const q = dernier(qs) ?? (() => { const n = M.agents.map(a => a.noteActuelle).filter(x => x != null); return n.length ? Math.round(sum(n) / n.length) : null; })();
-    const fiches = M.biblio.fiches.filter(f => /valid/i.test(f.statut)).length;
-    const pret = (M.usine.pret.find(r => r.Nom === "Décision") || {})["État"];
-    return { crumbs: [], html: `
-      <div class="hello"><div class="date">${esc(aujourdhui())}</div><h1>Bonjour, Président</h1></div>
-      <div class="verdict ${v.ic === "📉" ? "bas" : ""}"><span class="big">${ICON[v.ic === "🛠️" ? "travail" : "argent"]}</span><div><b>${esc(v.t)}</b><span class="sub">${esc(d.length ? v.s.replace(" " + attend(d.length), "").replace(attend(d.length), "") : v.s)}</span></div></div>
-      ${boiteDecisions(d)}
-      ${inviterNotifications()}
-      ${d.length ? "" : `<div class="calme">${ICON.decide}<div><b>Rien à décider, tout roule.</b><span class="sub">Vous serez prévenu dès qu'une décision vous attend.</span></div></div>`}
-      <div class="tiles">
-        ${tileS("argent", "argent", "Mon argent", bs.some(x => x) ? `Bénéfice du mois : ${signe(bs[11] || 0)}` : `Dépenses du mois : ${eur(M.argent.dep || 0)}${M.argent.ia != null ? " + " + usd(M.argent.ia) + " d'IA" : ""}`, bs.some(x => x) ? bs : coutSerie(), bs.some(x => x) ? "var(--good)" : "var(--cost)")}
-        ${tile("biblio", "livre", "La Bibliothèque", `${fiches} fiche${fiches > 1 ? "s" : ""} validée${fiches > 1 ? "s" : ""} · ${M.biblio.lacunes.filter(l => !/r[ée]solu/i.test(l.statut)).length} manque à combler`)}
-        ${tile("usine", "usine", "L'Usine (les coulisses)", `Santé, outils, calendrier${pret ? ` · prête pour le réel : ${pret === "OUI" ? "oui" : "pas encore"}` : ""}`)}
-      </div>
-      ${pied()}`};
-  },
   decisions(){
     const d = M.decisions;
     return { crumbs: [["Mes décisions"]], html: `<div><h1>Vos décisions</h1><p class="lead">Seulement ce qui a besoin du patron : valider un projet, valider un aperçu, décider après un test, dépenser de l'argent réel, ou un problème grave. Le reste, l'équipe le règle.</p></div>
       ${noteEcran("decisions")}
       ${d.length ? `<div class="rows">${d.map(x => `<a class="rowl" href="#${x.projet ? `projets.${x.projet}.decision` : `decisions.${x.n}`}"><span class="avatar">${esc((x.projet ? M.parId[x.projet].nom : x.titre)[0])}</span><span class="tx"><b>${esc(x.titre)}</b><span>${esc(x.texte.slice(0, 140))}${x.texte.length > 140 ? "…" : ""}</span></span><span class="go">›</span></a>`).join("")}</div>` : vide("Aucune décision en attente. L'équipe avance.")}`};
-  },
-  decision(x){
-    const p = x.projet ? M.parId[x.projet] : null;
-    const cr = p ? [["Mes projets", "projets"], [p.nom, "projets." + p.id], ["Votre décision"]] : [["Mes décisions", "decisions"], [x.titre]];
-    const r = resumeHtml(x);
-    return { crumbs: cr, html: `<div><h1>${esc(x.titre)}</h1><p class="lead">${esc(x.texte)}</p></div>
-      ${noteEcran("dec" + x.n)}
-      <div class="card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><h2>Le résumé d'une page</h2>${lienDoc(x.resumeLien, "Ouvrir le document")}</div>${r}</div>
-      ${x.reco ? `<div class="card"><h2 style="margin-bottom:6px">Ce que l'équipe recommande</h2><p style="margin:0">${esc(x.reco)}</p>${x.options.length > 1 ? `<p class="sub" style="margin:8px 0 0">Choix possibles : ${x.options.map(esc).join(", ")}.</p>` : ""}</div>` : ""}
-      <div class="decide"><div><b>À vous de décider</b><div style="opacity:.9">${esc(x.options[0] || "Valider")}, ou demander des corrections.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-valider="${x.n}">Valider</button><button class="btn ghost" data-corriger="${x.n}">Demander des corrections</button></div>
-        <form id="fix-${x.n}" data-fix="${x.n}" hidden style="flex-basis:100%;display:flex;flex-direction:column;gap:8px"><textarea class="fix" id="fixt-${x.n}" aria-label="Les corrections demandées" placeholder="Ex. : « Ajoutez une version en anglais avant de lancer. »"></textarea><div><button class="btn">Envoyer les corrections</button></div></form></div>
-      <p class="sub">${enSim() ? "Simulation : votre réponse reste dans ce navigateur." : "Votre réponse est écrite dans le tableau. L'équipe l'applique à son prochain passage."}</p>`};
   },
   projets(){
     const list = M.projets.slice().sort((a, b) => (a.arrete - b.arrete) || (b.decisions.length - a.decisions.length) || (b.etape - a.etape));
@@ -825,18 +783,213 @@ const VUES = {
       ${l.length ? `<div class="rows">${l.map(r => { const m = /principal ([^,]+), secours ([^,]+)(?:, compte : (.*))?/.exec(r["Détail"] || "") || []; return `<div class="rowl"><span class="tx"><b>${esc(nom[r.Nom] || r.Nom)}</b><span>${m[1] ? `Outil : ${esc(maj(m[1]))} · secours : ${esc(maj(m[2]))}${m[3] && m[3] !== "sans" ? " · compte " + esc(m[3]) : ""}` : esc(r["Détail"])}</span></span><span class="pill ${/actif/i.test(r["État"]) ? "good" : "warn"}">${esc(r["État"])}</span></div>`; }).join("")}</div>` : vide("Pas encore de source de veille.")}`};
   },
 };
-/* ===================== Boîte « À décider », notifications, réglages ===================== */
-const CATS_COURTS = {1:"Projet", 2:"Aperçu", 3:"Après le test", 4:"Argent réel", 5:"Problème grave"};
+/* ===================== Le cockpit (comme le modèle « Centre de pilotage ») ===================== */
+const CATS_COURTS = {1:"Valider un projet", 2:"Valider un aperçu", 3:"Décider après le test", 4:"Argent réel", 5:"Problème grave"};
 const lienDecision = x => x.projet ? `projets.${x.projet}.decision` : `decisions.${x.n}`;
-function boiteDecisions(d){
-  if (!d.length) return "";
-  return `<section class="inbox" aria-label="À décider"><div class="inbox-h"><h2>À décider</h2><span class="count">${d.length}</span></div>
-    ${noteEcran("decisions")}
-    ${d.slice(0, 3).map(x => `<article class="dcard ${x.cat === 5 ? "grave" : ""}"><div class="dtop"><span class="pill ${x.cat === 5 ? "bad" : "info"}">${esc(CATS_COURTS[x.cat] || "Décision")}</span><span class="sub">${esc(fmtD(x.date))}${x.qui ? " · " + esc(x.qui) : ""}</span></div>
-      <b>${esc(x.titre)}</b><p>${esc(x.texte.slice(0, 150))}${x.texte.length > 150 ? "…" : ""}</p>
-      <div class="dact">${x.cat === 5 ? "" : `<button class="btn primary" data-vite="${x.n}">${esc(x.options[0] && x.options[0].length < 24 ? x.options[0] : "Valider")}</button>`}<a class="btn" href="#${lienDecision(x)}">Lire et décider</a></div></article>`).join("")}
-    ${d.length > 3 ? `<a class="btn" href="#decisions" style="align-self:flex-start">Voir les ${d.length} décisions</a>` : ""}</section>`;
+const ICO = {
+  verrou:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  envoyer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  reglages:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
+};
+const prio = (n, t, extra = "", acc) => `<div class="plabel"><span class="rank ${acc ? "acc" : ""}">${n}</span>${t}${extra ? ` <span class="extra">· ${extra}</span>` : ""}</div>`;
+
+/* La barre du haut : titre, fraîcheur des données, bascule Simulation / Réel. */
+function barre(){
+  const min = S.at ? Math.max(0, Math.round((Date.now() - S.at) / 60000)) : null;
+  const live = enSim() ? `<span class="live off"><span class="dot"></span>${esc(journeeSimulee() || "Simulation")}</span>`
+    : !mcp ? `<span class="live off"><span class="dot"></span>pas connecté</span>`
+    : Object.keys(S.err).some(k => !OPTIONNELS.includes(k)) ? `<span class="live off"><span class="dot"></span>données pas à jour</span>`
+    : `<span class="live"><span class="dot"></span>à jour${min != null ? (min ? ` · il y a ${min} min` : " · à l'instant") : ""}</span>`;
+  return `<header class="bar"><div><div class="eye">Centre de pilotage</div><h1>Mon QG</h1></div>${live}
+    <div class="toggle" role="group" aria-label="Données affichées"><button data-mode="sim" aria-pressed="${enSim()}">Simulation</button><button data-mode="reel" aria-pressed="${!enSim()}">Réel</button></div></header>`;
 }
+
+function verdict2(){
+  const d = M.decisions, grave = d.filter(x => x.cat === 5).length;
+  if (grave) return {cls: "crit", t: `${grave > 1 ? grave + " problèmes graves" : "Un problème grave"} à regarder tout de suite.`};
+  if (d.length) return {cls: "", t: `${d.length > 1 ? d.length + " décisions vous attendent" : "1 décision vous attend"}, tout le reste va bien.`};
+  return {cls: "ok", t: "Rien à décider : tout va bien."};
+}
+
+/* ② Argent : la courbe du bénéfice cumulé, qu'on touche pour lire chaque mois. En Réel, un 0 € honnête. */
+function argentAccueil(){
+  const bs = benefSerie(), cum = cumul(bs), vend = totRev().some(v => v);
+  if (!enSim() && !vend){
+    return `<section class="card money"><div class="row"><span class="big">0 €</span><span class="tag wait">En attente du 1er vrai test</span></div>
+      <span class="sub">Argent réel : rien gagné, rien dépensé. L'Usine est en mode TEST.</span>
+      <div class="chartwrap"><svg viewBox="0 0 480 150" role="img" aria-label="0 € réel, en attente du premier test"><line x1="10" x2="470" y1="75" y2="75" stroke="var(--faint)" stroke-dasharray="4 5"/><text x="240" y="62" text-anchor="middle" font-size="13" fill="var(--muted)">0 € réel, en attente du 1er test</text></svg></div>
+      <div class="acts"><a class="open-link" href="#argent">Ouvrir l'argent ›</a></div></section>`;
+  }
+  const fin = dernier(cum) ?? 0;
+  let eq = -1; for (let i = 1; i < 12; i++) if (cum[i] != null && cum[i - 1] != null && cum[i - 1] < 0 && cum[i] >= 0){ eq = i; break; }
+  const tag = eq >= 0 ? `<span class="tag">Équilibre au mois ${eq + 1}</span>` : fin >= 0 ? `<span class="tag">Rentable</span>` : `<span class="tag wait">Pas encore à l'équilibre</span>`;
+  return `<section class="card money"><div class="row"><span class="big">${signe(fin)}</span>${tag}</div>
+    <span class="sub">Bénéfice cumulé sur 12 mois, tous projets${enSim() ? " (exemple)" : ""}. Touchez la courbe pour lire chaque mois.</span>
+    ${courbeArgent(cum, eq)}
+    <div class="acts"><a class="open-link" href="#argent">Ouvrir l'argent ›</a></div></section>`;
+}
+function courbeArgent(vals, eq){
+  const W = 480, H = 150, P = 12, pts = vals.map((v, i) => [i, v]).filter(p => p[1] != null);
+  if (pts.length < 2) return `<p class="sub">La courbe apparaîtra dès le deuxième mois mesuré.</p>`;
+  const lo = Math.min(0, ...pts.map(p => p[1])), hi = Math.max(0, ...pts.map(p => p[1])), X = i => P + i / 11 * (W - 2 * P), Y = v => P + (hi - v) / (hi - lo || 1) * (H - 2 * P);
+  const d = pts.map((p, j) => (j ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join("");
+  const id = "g" + (++cid), coul = (dernier(vals) ?? 0) >= 0 ? "var(--good)" : "var(--crit)";
+  return `<div class="chartwrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bénéfice cumulé mois par mois">
+    <defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${P}" x2="${W - P}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--faint)" stroke-dasharray="4 5"/>
+    <path d="${d}L${X(pts.at(-1)[0]).toFixed(1)} ${H}L${X(pts[0][0]).toFixed(1)} ${H}Z" fill="url(#${id})"/>
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${eq >= 0 ? `<circle cx="${X(eq)}" cy="${Y(vals[eq])}" r="5" fill="var(--warn)" stroke="var(--surface)" stroke-width="2"/>` : ""}
+    <circle cx="${X(pts.at(-1)[0])}" cy="${Y(pts.at(-1)[1])}" r="4.5" fill="${coul}" stroke="var(--surface)" stroke-width="2"/>
+    ${pts.map(([i, v]) => `<rect data-tip="${esc(MNL[(+MOISK[i].slice(5)) - 1])} · ${esc(signe(v))}" data-x="${(X(i) / W * 100).toFixed(2)}" data-y="${(Y(v) / H * 100).toFixed(2)}" x="${X(i) - (W - 2 * P) / 22}" y="0" width="${(W - 2 * P) / 11}" height="${H}" fill="transparent"/>`).join("")}
+    </svg><div class="tip2" aria-hidden="true"></div></div>
+    <div class="ticks">${[0, 3, 6, 9, 11].map(i => `<span>${esc(MOIS[i])}</span>`).join("")}</div>`;
+}
+function montrerBulle(r){
+  const w = r.closest(".chartwrap"), t = w && w.querySelector(".tip2"); if (!t) return;
+  t.textContent = r.dataset.tip; t.style.left = Math.min(Math.max(+r.dataset.x, 14), 86) + "%"; t.style.top = `calc(${r.dataset.y}% - 8px)`; t.style.opacity = 1;
+}
+const bulleSous = e => { const el = document.elementFromPoint(e.clientX, e.clientY); return el && el.closest && el.closest(".chartwrap rect[data-tip]"); };
+document.addEventListener("pointermove", e => { const r = bulleSous(e); if (r) montrerBulle(r); else if (e.pointerType === "mouse") document.querySelectorAll(".tip2").forEach(t => t.style.opacity = 0); });
+document.addEventListener("pointerdown", e => { const r = bulleSous(e); if (r) montrerBulle(r); });
+
+/* ③ Projets : une seule entrée, résumée. */
+function projetsAccueil(){
+  const act = actifs(), adec = M.projets.filter(p => p.decisions.length).length, arr = M.projets.length - act.length, avance = act.filter(p => !p.decisions.length).length;
+  return `<section class="card psum"><div class="psum-main"><span class="psum-n">${act.length}</span><div><div class="psum-t">projet${act.length > 1 ? "s" : ""} en cours</div><div class="psum-b">${M.projets.length ? pluriel(`${M.projets.length} au total`) : "La Veille cherche des idées"}</div></div></div>
+    <div class="psum-tags">${avance ? `<span class="pill good">${avance} avance${avance > 1 ? "nt" : ""}</span>` : ""}${adec ? `<span class="pill warn">${adec} à décider</span>` : ""}${arr ? `<span class="pill off">${arr} arrêté${arr > 1 ? "s" : ""}</span>` : ""}</div>
+    <a class="open-link" href="#projets">Voir tous les projets ›</a></section>`;
+}
+
+/* ④ La machine : on entre dans chaque partie. */
+function etatSecurite(){
+  const sec = M.usine.securite[0] || {}, alertes = securiteAlertes();
+  return {ok: !alertes.length && !/alerte|anormal|fuite|intrusion/i.test(sec["État"] || ""), alertes};
+}
+function securiteAlertes(){
+  const graves = M.decisions.filter(d => d.cat === 5).map(d => ({t: d.titre + " : " + d.texte, date: d.date, lien: lienDecision(d)}));
+  const autres = (M.usine.alertes || []).map(a => ({t: propre(a["Détail"] || a.Nom), date: a.Date}));
+  return graves.concat(autres);
+}
+function machine(){
+  const s = etatSecurite(), fiches = M.biblio.fiches.length;
+  return `<div class="machine">
+    <a class="mtile" href="#equipe"><span class="ico">${ICON.equipe}</span><span class="n">${M.agents.length}</span><span class="l">Agents</span></a>
+    <a class="mtile" href="#biblio"><span class="ico">${ICON.livre}</span><span class="n">${fiches}</span><span class="l">Fiches</span></a>
+    <a class="mtile" href="#securite"><span class="ico">${ICON.sante}</span><span class="n ${s.ok ? "ok" : "ko"}">${s.ok ? "OK" : s.alertes.length}</span><span class="l">Sécurité</span></a>
+    <a class="mtile" href="#reglages"><span class="ico">${ICO.reglages}</span><span class="n">TEST</span><span class="l">Réglages</span></a></div>`;
+}
+
+/* 💬 Parler à l'Usine : le chat sur l'accueil (les derniers messages) et en grand (#chat). */
+const SIMCHAT = [];
+const sansSuffixe = t => String(t || "").replace(/\s*\(projet [^)]*\)\s*$/, "");
+function filChat(){
+  const l = [];
+  if (enSim()){
+    l.push({qui: "them", t: "Bonjour. Donnez-moi un ordre ou posez une question : j'organise l'équipe.", d: "Usine"});
+    SIMCHAT.forEach(m => l.push(m));
+    return l;
+  }
+  M.messages.forEach(m => {
+    if (m.texte) l.push({qui: "me", t: sansSuffixe(m.texte), d: fmtD(m.date) || m.date});
+    if (m.reponse) l.push({qui: "them", t: propre(m.reponse), d: m.statut || "Usine"});
+    else if (m.texte) l.push({qui: "them", t: "Bien reçu. L'équipe répond à son prochain passage.", d: "en attente", attente: true});
+  });
+  return l;
+}
+function chatHtml(grand){
+  const l = filChat(), vus = grand ? l : l.slice(-4), p = actifs()[0];
+  const chips = [[p ? `Où en est ${p.nom} ?` : "Où en est l'Usine ?", ""], ["Ajouter une vidéo", "Ajoute cette vidéo à la Bibliothèque : "], ["Lancer un test", "Lance un test pour "], ["Montre l'argent", "#argent"]];
+  return `<section class="card chat"><div class="ch-head"><span class="av">U</span><div><div class="who">L'Usine</div><span class="st">${enSim() ? "simulation" : "répond à son prochain passage"}</span></div>${grand ? "" : `<a class="ouvrir" href="#chat">Tout voir ›</a>`}</div>
+    <div class="msgs ${grand ? "long" : ""}" id="msgs">${vus.length ? vus.map(m => `<div class="msg ${m.qui}">${esc(m.t)}${m.d ? `<small>${esc(m.d)}</small>` : ""}</div>`).join("") : `<p class="sub" style="margin:0">Aucun message pour l'instant. Écrivez à l'Usine : une question, un ordre, une vidéo à étudier.</p>`}</div>
+    ${noteEcran("chat")}
+    <div class="chips">${chips.map(([t, v]) => `<button class="chip" type="button" data-chip="${esc(v || t)}">${esc(t)}</button>`).join("")}</div>
+    <form class="ch-input" data-chat="1"><input id="chat-in" aria-label="Votre message à l'Usine" placeholder="Une question, un ordre…" autocomplete="off" maxlength="500"><button class="send" aria-label="Envoyer">${ICO.envoyer}</button></form></section>`;
+}
+function reponseSim(v){
+  const p = M.projets.find(x => v.includes(x.nom) || v.includes(x.id));
+  if (/o[uù] en est/i.test(v) && p){ const now = p.plan.find(x => x[0] === "now"); return `${p.nom} : étape « ${ETAPES[p.etape]} »${now ? `. En cours : ${now[2].toLowerCase()}` : ""}.`; }
+  if (/vid[ée]o|youtube|https?:/i.test(v)) return "Bien reçu : la Bibliothécaire regarde la vidéo et propose une fiche. Vous la validerez ou la refuserez dans Fiches.";
+  if (/test/i.test(v)) return "Je prépare le test. Rien ne sera publié, acheté ni dépensé en vrai sans votre « oui ».";
+  if (/argent|gagn|b[ée]n[ée]fice/i.test(v)) return `Bénéfice cumulé sur 12 mois : ${signe(dernier(cumul(benefSerie())) ?? 0)}.`;
+  return "Bien reçu. Le Directeur général s'en occupe à son prochain passage.";
+}
+
+VUES.accueil = function(){
+  const d = M.decisions, v = verdict2(), x = d[0];
+  const dec = x ? `<section class="card dec2 ${x.cat === 5 ? "grave" : ""}"><div class="meta"><span class="d"></span>${esc(CATS_COURTS[x.cat] || "Décision")}<span class="count">1 sur ${d.length}</span></div>
+      <h2 class="q">${esc(x.titre)}</h2><p class="why">${esc(x.texte.slice(0, 170))}${x.texte.length > 170 ? "…" : ""}</p>
+      <div class="acts"><a class="btn primary" href="#${lienDecision(x)}">Ouvrir la décision ›</a>${d.length > 1 ? `<a class="btn" href="#decisions">Voir les ${d.length}</a>` : ""}</div>
+      <p class="hint">Vous entrez, vous lisez, vous décidez. Jamais à l'aveugle.</p></section>`
+    : `<section class="card"><div class="done-msg">${ICON.decide.replace("<svg", '<svg width="20" height="20"')}Rien à décider. Vous serez prévenu dès qu'une décision arrive.</div></section>`;
+  return { crumbs: [], html: `${barre()}
+    <div class="verdict2 ${v.cls}" role="status"><span class="vdot"></span>${esc(v.t)}</div>
+    ${noteEcran("decisions")}
+    ${prio(1, "À décider", d.length ? `${d.length} en attente` : "", true)}${dec}
+    ${inviterNotifications()}
+    <div class="plabel"><span class="rank">💬</span>Parler à l'Usine</div>${chatHtml(false)}
+    ${prio(2, "Argent")}${argentAccueil()}
+    ${prio(3, "Projets")}${projetsAccueil()}
+    ${prio(4, "La machine", "touchez pour entrer")}${machine()}
+    ${pied()}`};
+};
+VUES.chat = function(){
+  return { crumbs: [["Parler à l'Usine"]], html: `<div><div class="kicker">Parler à l'Usine</div><h1>Vos messages et les réponses</h1><p class="lead">Posez une question, donnez un ordre (ajouter une vidéo, lancer un test). ${enSim() ? "Simulation : rien n'est envoyé." : "Le message est écrit dans « Parler à l'Usine »."}</p></div>${chatHtml(true)}`};
+};
+
+/* La fenêtre Décision : voir (date, analyse, problèmes, coût, estimation, recommandation), puis décider en 2 touchers. */
+function rentabDe(p){ return p && p.rentab ? p.rentab : null; }
+function problemesDe(x, p){
+  const l = [];
+  if (p && p.scores) p.scores.filter(([, v]) => v != null && v <= 2).forEach(([k, v]) => l.push(`${k} : ${v} sur 5, c'est faible.`));
+  if (p && p.notes) p.notes.split(/\s*[;\n]\s*/).filter(Boolean).forEach(t => l.push(propre(t)));
+  if (x.cat === 5) l.unshift(x.texte);
+  return l;
+}
+const confianceDe = p => { if (!p) return null; const i = M.biblio.idees.find(i => i.titre === p.nom); return i && i.confiance != null ? i.confiance : null; };
+VUES.decision = function(x){
+  const p = x.projet ? M.parId[x.projet] : null, r = rentabDe(p), probs = problemesDe(x, p), conf = confianceDe(p);
+  const cr = p ? [["Mes projets", "projets"], [p.nom, "projets." + p.id], ["Décision"]] : [["Mes décisions", "decisions"], ["Décision"]];
+  const options = x.options.length ? x.options : ["Valider"];
+  const recoIdx = options.findIndex(o => x.reco && x.reco.toLowerCase().startsWith(o.toLowerCase().split(/\s+/)[0]));
+  const cellule = (l, v, n = "") => v == null || v === "" ? "" : `<div><span class="cl">${l}</span><span class="cv">${v}</span>${n ? `<span class="cn">${n}</span>` : ""}</div>`;
+  const cout = r ? [cellule("Coût de départ", r.depart != null ? eur(r.depart) : null, r.mensuel != null ? `puis ${eur(r.mensuel)} par mois` : ""), cellule("Prix prévu", r.prix != null ? eur(r.prix) : null),
+    cellule("Équilibre estimé", r.pm != null ? `mois ${r.pm}` : null), cellule("Bénéfice sur 12 mois", r.b12 != null ? signe(r.b12) : null, r.r12 != null ? `pour ${eur(r.r12)} de revenus` : ""),
+    cellule("Confiance de la Veille", conf != null ? conf + " %" : null)].join("") : "";
+  const faits = [`Posée le ${fmtD(x.date) || "?"}${x.qui ? ` par ${propre(x.qui)}` : ""}.`];
+  if (p) faits.push(`Projet ${p.nom} : étape « ${ETAPES[p.etape]} »${p.note ? `, note de la Veille ${p.note}/35` : ""}.`);
+  if (x.cat !== 5) faits.push(x.texte);
+  return { crumbs: cr, html: `<div><div class="kicker">${esc(CATS[x.cat] || "Décision")}</div><h1>${esc(x.titre)}</h1></div>
+    ${noteEcran("dec" + x.n)}
+    <div><h3 class="sec">L'analyse</h3><ul class="facts">${faits.map(f => `<li>${esc(f)}</li>`).join("")}</ul></div>
+    <details class="card rep" ${x.resumeSim || x.resumeId ? "" : "hidden"}><summary><span class="tx"><b>Le résumé d'une page</b></span>${lienDoc(x.resumeLien, "Ouvrir")}</summary><div class="body">${resumeHtml(x)}</div></details>
+    <div><h3 class="sec">Les problèmes</h3>${probs.length ? `<ul class="probs">${probs.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : `<p class="sub" style="margin:0">Aucun problème relevé par l'équipe.</p>`}</div>
+    <div><h3 class="sec">Le coût et l'estimation</h3>${cout ? `<div class="costgrid">${cout}</div><p class="sub" style="margin:8px 0 0">Une estimation, pas un résultat : elle sera comparée aux vrais chiffres.</p>` : `<p class="sub" style="margin:0">Pas encore chiffré par la Finance.</p>`}</div>
+    ${x.reco ? `<div><h3 class="sec">Ce que l'équipe recommande</h3><p class="reco2">${esc(x.reco)}</p></div>` : ""}
+    <div><h3 class="sec">Votre décision</h3><div class="opts">${options.map((o, i) => `<button class="opt ${i === recoIdx ? "reco-opt" : ""}" data-opt="${i + 1}" data-n="${esc(x.n)}"><b>${esc(o)}</b><small>${i === recoIdx ? "Recommandé par l'équipe" : "Toucher pour choisir"}</small></button>`).join("")}
+      <button class="opt" data-corriger="${esc(x.n)}"><b>Demander des corrections</b><small>Écrire ce qu'il faut changer</small></button></div>
+      <form id="fix-${esc(x.n)}" data-fix="${esc(x.n)}" hidden style="margin-top:10px;flex-direction:column;gap:8px"><textarea class="fix" id="fixt-${esc(x.n)}" aria-label="Les corrections demandées" placeholder="Ex. : « Ajoutez une version en anglais avant de lancer. »"></textarea><div><button class="btn primary">Envoyer les corrections</button></div></form>
+      <p class="hint">Un toucher pour choisir, un deuxième pour confirmer.</p></div>
+    <p class="sub">${enSim() ? "Simulation : votre réponse reste dans ce navigateur." : "Votre réponse est écrite dans le tableau. L'équipe l'applique à son prochain passage."}</p>`};
+};
+
+/* Sécurité : voir, révoquer un accès, voir les alertes. */
+VUES.securite = function(){
+  const s = etatSecurite(), sec = M.usine.securite[0] || {};
+  const ok = [["Seul votre compte Google ouvre vos données", true], ["Votre e-mail n'est écrit nulle part dans l'app", true], ["Aucun secret dans l'app", true],
+    ["Rien de vos données n'est gardé sur le téléphone", true], ["Mode TEST : aucune dépense réelle sans votre « oui »", true],
+    [sec["État"] ? `Surveillance de l'Usine : ${propre(sec["État"])}` : "Surveillance de l'Usine : pas encore de contrôle", !!sec["État"] && s.ok]];
+  return { crumbs: [["Sécurité"]], html: `<div><div class="kicker">Sécurité</div><h1>${s.ok ? "Tout est vert" : pluriel(`${s.alertes.length} alerte(s) à regarder`)}</h1></div>
+    ${noteEcran("securite")}
+    <ul class="statline">${ok.map(([t, v]) => `<li><span class="${v ? "ok" : "ko"}">${v ? "✓" : "!"}</span>${esc(t)}</li>`).join("")}</ul>
+    <div><h3 class="sec">Alertes</h3>${s.alertes.length ? `<div class="vlist">${s.alertes.map(a => a.lien ? `<a class="vrow" href="#${esc(a.lien)}"><span class="nm">${esc(a.t)}<small>${esc(fmtD(a.date))}</small></span><span class="go rt">›</span></a>` : `<div class="vrow"><span class="nm">${esc(a.t)}<small>${esc(fmtD(a.date))}</small></span></div>`).join("")}</div>` : `<p class="sub" style="margin:0">Aucune alerte.</p>`}</div>
+    <div><h3 class="sec">Accès</h3><div class="vlist">
+      <div class="vrow"><span class="nm">Google (votre compte)<small>${enSim() ? "Simulation : pas de connexion." : G.connecte() ? "Connecté, pour une heure au plus. Jamais enregistré." : "Pas connecté."}</small></span>${!enSim() && G.connecte() ? `<button class="btn danger rt" data-arme="revoquer">Couper l'accès</button>` : ""}</div>
+    </div><p class="sub" style="margin:8px 0 0">Pour retirer l'autorisation donnée à l'app : <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">vos autorisations Google ↗</a>.</p></div>
+    <a class="open-link" href="#usine" style="margin-left:0;align-self:flex-start">Les coulisses de l'Usine ›</a>`};
+};
+
+/* ===================== Notifications, réglages ===================== */
 function inviterNotifications(){
   const A = window.QG_ALERTES; if (!A) return "";
   const e = A.etat(); if (e.permission !== "default" || (!e.support && !e.ios)) return "";
@@ -913,9 +1066,8 @@ async function chargerResume(id){
   route(true);
 }
 function pied(){
-  if (enSim()) return `<p class="foot">Simulation : données d'exemple sur 12 mois, rien n'est envoyé. Touchez « Simulation × » en haut pour revenir à vos vraies données.</p>`;
-  const min = S.at ? Math.max(0, Math.round((Date.now() - S.at) / 60000)) : null;
-  return `<p class="foot">Vraies données de l'Usine (environnement de test), lues dans votre tableau${min != null ? ` il y a ${min} min` : ""}. <button class="btn" id="deconnexion" style="padding:4px 10px;font-size:12px">Se déconnecter</button></p>`;
+  const lieu = enSim() ? "Simulation : données d'exemple, rien n'est envoyé ni dépensé." : "Vraies données de l'Usine (environnement TEST), lues avec votre compte Google.";
+  return `<div class="foot2">${ICO.verrou}<span>Seul vous pouvez entrer. Votre e-mail n'est écrit nulle part. ${lieu}${!enSim() && mcp ? ` <button class="btn" id="deconnexion" style="padding:4px 10px;font-size:12px;min-height:0">Se déconnecter</button>` : ""}</span></div>`;
 }
 
 /* ===================== Navigation par niveaux ===================== */
@@ -930,9 +1082,7 @@ let derniereVue = "", envoye = null;
 const idsDu = f => new Set([...(f ? f.elements : [])].map(e => e.id).filter(Boolean));
 function route(garderScroll){
   if (MODE === "reel" && (!S.et || !S.pj)){
-    $("#crumbs").innerHTML = "";
-    $("#view").innerHTML = bandeau() + (mcp || !mcpPret ? `<p class="sub" role="status" style="margin:0">Lecture de vos vraies données dans le tableau de l'Usine…</p><div class="sk sk-h"></div><div class="sk sk-card"></div><div class="sk sk-card"></div>` : "");
-    onglets(location.hash.slice(1).split(".")[0] || "accueil", 0);
+    $("#view").innerHTML = barre() + bandeau() + (mcp || !mcpPret ? `<p class="sub" role="status" style="margin:0">Lecture de vos vraies données dans le tableau de l'Usine…</p><div class="sk sk-h"></div><div class="sk sk-card"></div><div class="sk sk-card"></div>` : "");
     return;
   }
   M = MODE === "sim" ? (M && M.mode === "sim" && M.persoV === persoV ? M : Object.assign(construireSim(), {persoV})) : construireReel();
@@ -955,26 +1105,23 @@ function route(garderScroll){
   if (!v){ if (h !== "accueil"){ location.hash = "accueil"; return; } return; }
   // Les données se relisent en arrière-plan : ce que le Président est en train d'écrire ne doit pas s'effacer.
   const saisies = garderScroll ? [...document.querySelectorAll("#view input[id], #view textarea[id]")].map(e => [e.id, e.value, e === document.activeElement]) : [];
-  $("#view").innerHTML = bandeau() + v.html;
+  // L'accueil est le cockpit ; tout le reste s'ouvre comme une fenêtre, avec « Retour » (un niveau plus haut).
+  if (parts[0] === "accueil") $("#view").innerHTML = bandeau() + v.html;
+  else {
+    const parent = (v.crumbs.slice(0, -1).reverse().find(c => c[1]) || [, "accueil"])[1], titre = (v.crumbs.at(-1) || ["Mon QG"])[0];
+    $("#view").innerHTML = `<section class="sheet"><div class="sheet-head"><a class="back" href="#${esc(parent)}">‹ Retour</a><span class="sheet-tag ${enSim() ? "sim" : ""}">${enSim() ? "Simulation · " : ""}${esc(titre)}</span></div><div class="sheet-body">${bandeau()}${v.html}</div></section>`;
+  }
   const vides = envoye; envoye = null; // un formulaire bien envoyé repart vide
   saisies.forEach(([id, val, actif]) => { const e = document.getElementById(id); if (!e || (vides && vides.has(id))) return; if (val && e.value !== val) e.value = val; if (actif) e.focus(); });
-  $("#crumbs").innerHTML = v.crumbs.length ? `<span>›</span>` + v.crumbs.map(([t, l], i) => l && i < v.crumbs.length - 1 ? `<a href="#${l}">${esc(t)}</a>` : `<b>${esc(t)}</b>`).join(`<span>›</span>`) : "";
-  const th = $("#thread"); if (th) th.scrollTop = th.scrollHeight;
+  const th = $("#thread") || $("#msgs"); if (th) th.scrollTop = th.scrollHeight;
   if (!garderScroll && derniereVue !== h) window.scrollTo(0, 0);
   derniereVue = h;
-  onglets(parts[0], M.decisions.length);
   if (MODE === "reel" && window.QG_ALERTES) QG_ALERTES.verifier(M.decisions);
-}
-/* Barre d'onglets en bas : l'onglet ouvert, et la pastille du nombre de décisions qui attendent. */
-function onglets(section, nbDecisions){
-  const actif = section === "projets" && /\.decision$/.test(location.hash) ? "decisions" : section === "demarrage" ? "reglages" : section;
-  document.querySelectorAll("#tabs [data-tab]").forEach(a => { const on = a.dataset.tab === actif; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
-  const b = $("#tab-badge"); if (b){ b.hidden = !nbDecisions; b.textContent = nbDecisions > 9 ? "9+" : String(nbDecisions || ""); }
 }
 let persoV = 0;
 function setMode(m){
   MODE = m; try { localStorage.setItem("qg-usine-mode", m); } catch(e) {}
-  $("#simpill").hidden = m !== "sim"; M = null; route();
+  M = null; route();
 }
 
 /* ===================== Écritures (Réel : dans le tableau ; Simulation : dans ce navigateur) ===================== */
@@ -994,13 +1141,20 @@ async function action(cle, travail, ok, boutons){
   catch(e){ notes[cle] = {t: echecEnvoi(e), cls: "bad"}; }
   boutons.forEach(b => b.disabled = false); route(true);
 }
-function decider(n, texte, boutons){
+function decider(n, texte, libelle, boutons){
   const x = M.decisions.find(d => String(d.n) === String(n)); if (!x) return;
-  const cle = "decisions", ok = texte === "1" ? `C'est noté : « ${x.titre} » est validé. L'équipe passe à la suite.` : "Vos corrections sont envoyées. L'équipe les fait et revient vers vous.";
-  const ici = (location.hash.slice(1) || "accueil") === "accueil" ? "accueil" : "decisions";
-  if (enSim()){ SIMDEC.add(String(n)); notes[cle] = {t: ok}; persoV++; if (location.hash.slice(1) !== ici) location.hash = ici; else route(true); return; }
-  action(cle, () => repondre(n, texte), ok, boutons).then(() => { if (notes[cle] && !notes[cle].cls && location.hash.slice(1) !== ici) location.hash = ici; });
+  const cle = "decisions", ok = libelle ? `C'est noté : « ${libelle} » pour « ${x.titre} ». L'équipe passe à la suite.` : "Vos corrections sont envoyées. L'équipe les fait et revient vers vous.";
+  if (enSim()){ SIMDEC.add(String(n)); notes[cle] = {t: ok}; persoV++; if (location.hash.slice(1) !== "accueil") location.hash = "accueil"; else route(true); return; }
+  action(cle, () => repondre(n, texte), ok, boutons).then(() => { if (notes[cle] && !notes[cle].cls && location.hash.slice(1) !== "accueil") location.hash = "accueil"; });
 }
+/* Une action qui compte = 2 touchers : le premier arme le bouton, le second confirme (4 secondes pour le faire). */
+function arme(b, texte){
+  if (b.classList.contains("arme")) return true;
+  document.querySelectorAll("#view .arme").forEach(desarmer);
+  const s = b.querySelector("small") || b; b.dataset.avant = s.textContent; s.textContent = texte || "Touchez encore pour confirmer"; b.classList.add("arme");
+  b._t = setTimeout(() => desarmer(b), 4000); return false;
+}
+function desarmer(b){ clearTimeout(b._t); if (!b.classList.contains("arme")) return; (b.querySelector("small") || b).textContent = b.dataset.avant; b.classList.remove("arme"); }
 const SIMDEC = new Set();
 const _construireSim = construireSim;
 construireSim = function(){ const m = _construireSim(); m.decisions = m.decisions.filter(d => !SIMDEC.has(String(d.n))); m.projets.forEach(p => p.decisions = p.decisions.filter(d => !SIMDEC.has(String(d.n)))); (SIMMSG).forEach(([id, t]) => { const p = m.parId[id]; if (p) p.messages.push({texte: t, date: "à l'instant", reponse: "", statut: ""}); }); return m; };
@@ -1015,17 +1169,15 @@ document.addEventListener("click", e => {
   if (b.id === "client-ok"){ const v = ($("#client-id").value || "").trim(); if (!G.idClientValide(v)){ notes.connexion = {t: "Ce n'est pas un ID client Google : il finit par « .apps.googleusercontent.com ».", cls: "bad"}; route(true); return; }
     G.enregistrerIdClient(v); connecter(); return; }
   if (b.id === "client-change"){ G.enregistrerIdClient(""); route(true); return; }
-  if (b.dataset.valider){ decider(b.dataset.valider, "1", [b]); return; }
-  if (b.dataset.vite){ // depuis l'accueil : un toucher pour préparer, un second pour confirmer
-    if (b.dataset.pret){ decider(b.dataset.vite, "1", [b]); return; }
-    b.dataset.pret = "1"; const avant = b.textContent; b.textContent = "Toucher encore pour confirmer"; b.classList.add("confirm");
-    setTimeout(() => { if (b.isConnected){ delete b.dataset.pret; b.textContent = avant; b.classList.remove("confirm"); } }, 4000); return; }
+  if (b.dataset.opt){ if (!arme(b)) return; desarmer(b); decider(b.dataset.n, b.dataset.opt, b.querySelector("b").textContent, [...document.querySelectorAll("#view .opt")]); return; }
+  if (b.dataset.chip){ const v = b.dataset.chip; if (v.startsWith("#")){ location.hash = v.slice(1); return; } const i = $("#chat-in"); i.value = v; i.focus(); i.setSelectionRange(v.length, v.length); return; }
+  if (b.dataset.arme === "revoquer"){ if (!arme(b)) return; G.seDeconnecter(); mcp = null; unsubs.forEach(u => { try { u(); } catch(e) {} }); unsubs = []; Object.keys(RANGES).forEach(k => delete S[k]); S.err = {}; notes.connexion = {t: "Accès Google coupé sur ce téléphone. Pour retirer aussi l'autorisation, ouvrez vos autorisations Google."}; location.hash = "accueil"; route(); return; }
   if (b.id === "notif-activer"){ notif(() => QG_ALERTES.activer().then(p => { if (p !== "granted"){ const e = new Error(p); e.code = "denied"; throw e; } if (M && MODE === "reel") QG_ALERTES.verifier(M.decisions); }), "Notifications activées. Vous serez prévenu quand une décision vous attend."); return; }
   if (b.id === "notif-tester"){ notif(() => QG_ALERTES.tester(), "Notification de test envoyée."); return; }
   if (b.id === "notif-push"){ notif(() => QG_ALERTES.activerAppFermee(), "C'est prêt : vous serez prévenu même app fermée. Une notification de bienvenue arrive."); return; }
   if (b.id === "notif-push-stop"){ notif(() => QG_ALERTES.arreterAppFermee(), "Notifications app fermée arrêtées sur ce téléphone."); return; }
   if (b.dataset.themeChoix){ appliquerTheme(b.dataset.themeChoix); route(true); return; }
-  if (b.dataset.corriger){ const f = document.getElementById("fix-" + b.dataset.corriger); f.hidden = false; f.querySelector("textarea").focus(); return; }
+  if (b.dataset.corriger){ const f = document.getElementById("fix-" + b.dataset.corriger); f.hidden = false; f.style.display = "flex"; f.querySelector("textarea").focus(); return; }
   const a = M && (M.parCle[b.dataset.agent || b.dataset.remplacer]);
   if (b.dataset.modele && a){
     const ok = `${a.prenom} passera au modèle ${MODELES[b.dataset.modele].nom} dès demain. On mesurera l'effet sur sa qualité dans un mois.`;
@@ -1049,7 +1201,10 @@ document.addEventListener("submit", e => {
   if (f.dataset.proj){ const v = $("#cm").value.trim(); if (!v) return; const p = M.parId[f.dataset.proj];
     if (enSim()){ SIMMSG.push([p.id, v]); persoV++; notes["msg" + p.id] = {t: "Message gardé dans la simulation."}; route(true); return; }
     action("msg" + p.id, () => envoyerMessage(`${v} (projet ${p.id}, ${p.nom})`), "Message envoyé. La réponse arrive au prochain passage du moteur.", btns); return; }
-  if (f.dataset.fix){ const v = document.getElementById("fixt-" + f.dataset.fix).value.trim(); if (!v) return; decider(f.dataset.fix, "Demander des corrections : " + v, btns); return; }
+  if (f.dataset.fix){ const v = document.getElementById("fixt-" + f.dataset.fix).value.trim(); if (!v) return; decider(f.dataset.fix, "Demander des corrections : " + v, "", btns); return; }
+  if (f.dataset.chat){ const v = $("#chat-in").value.trim().slice(0, 500); if (!v) return;
+    if (enSim()){ SIMCHAT.push({qui: "me", t: v, d: "à l'instant"}, {qui: "them", t: reponseSim(v), d: "Usine · simulation"}); route(true); return; }
+    action("chat", () => envoyerMessage(v), "Envoyé à l'Usine. Elle répond à son prochain passage.", btns); return; }
   if (f.dataset.renommer){ const v = $("#np").value.trim().slice(0, 30); const a = M.parCle[f.dataset.renommer]; if (!v || !a) return;
     if (enSim()){ (PERSO[a.id] ||= {}).prenom = v; savePerso(); persoV++; notes["contrat" + a.id] = {t: `Il s'appelle maintenant ${v}.`}; route(true); return; }
     action("contrat" + a.id, () => envoyerMessage(`Change le prénom de « ${a.poste} » en ${v}`), `C'est envoyé : ${a.poste} s'appellera ${v} après le prochain passage du moteur.`, btns); return; }
@@ -1081,8 +1236,16 @@ function demarrer(){
 }
 let timer = 0;
 const planifier = () => { clearTimeout(timer); timer = setTimeout(() => { if (MODE === "reel") route(true); }, 60); };
-window.addEventListener("hashchange", () => { Object.keys(notes).forEach(k => { if (notes[k].t0 && Date.now() - notes[k].t0 > 1500) delete notes[k]; }); route(); });
-$("#simpill").hidden = MODE !== "sim";
+/* « Retour » ramène là d'où l'on vient (un niveau en arrière) ; sans historique, au niveau du dessus. */
+let pile = [], enRetour = false;
+document.addEventListener("click", e => {
+  const a = e.target.closest("a.back"); if (!a) return;
+  e.preventDefault(); enRetour = true; const h = pile.pop(); location.hash = h || a.getAttribute("href").slice(1);
+}, true);
+window.addEventListener("hashchange", () => {
+  const h = location.hash.slice(1) || "accueil";
+  if (h === "accueil") pile = []; else if (!enRetour && derniereVue && derniereVue !== h) pile.push(derniereVue);
+  enRetour = false; Object.keys(notes).forEach(k => { if (notes[k].t0 && Date.now() - notes[k].t0 > 1500) delete notes[k]; }); route(); });
 route();
 mcp = G.connecte() ? G.mcp : null;
 mcpPret = true;

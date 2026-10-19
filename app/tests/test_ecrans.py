@@ -164,7 +164,7 @@ def connecter(page, serveur, avant=None):
     page.goto(serveur + "/")
     page.fill("#client-id", ID_CLIENT)
     page.click("#client-ok")
-    page.wait_for_selector("text=Bonjour", timeout=15000)
+    page.wait_for_selector(".machine", timeout=15000)  # les vraies données sont lues
     return google
 
 
@@ -197,7 +197,7 @@ def test_chaque_ecran_simulation(pw, navigateur, serveur, appareil):
     ctx, page = ouvrir(pw, navigateur, serveur, appareil)
     page.goto(serveur + "/")
     page.click("#view button[data-mode=sim] >> nth=0")
-    page.wait_for_selector("text=Bonjour")
+    page.wait_for_selector("text=Centre de pilotage")
     vus = parcourir(page)
     assert len(vus) > 40, len(vus)  # tous les niveaux : projets, équipe, argent, Bibliothèque, Usine…
     assert not page.erreurs, page.erreurs
@@ -275,6 +275,7 @@ def test_boutons_qui_ecrivent(pw, navigateur, serveur):
 
     # 5. Décision : le résumé d'une page se lit dans Drive, puis « Demander des corrections » et « Valider »
     page.evaluate("location.hash = 'decisions.2'")
+    page.click("details.rep summary")
     page.wait_for_selector("text=un résumé inventé pour le test")
     page.click("button[data-corriger]")
     page.fill("#fixt-2", "Ajoute les prix des concurrents.")
@@ -282,6 +283,16 @@ def test_boutons_qui_ecrivent(pw, navigateur, serveur):
     page.wait_for_selector("text=Vos corrections sont envoyées")
     assert ecr[-1]["methode"] == "PUT" and ecr[-1]["plage"] == "'Décisions & Questions'!H2:I2"
     assert ecr[-1]["valeurs"] == [["Demander des corrections : Ajoute les prix des concurrents.", "Répondu"]]
+
+    # 6. Le chat de l'accueil : un ordre écrit dans « Parler à l'Usine »
+    page.evaluate("location.hash = 'accueil'")
+    page.click("button[data-chip^='Ajoute cette vidéo']")
+    assert page.input_value("#chat-in").startswith("Ajoute cette vidéo à la Bibliothèque")
+    page.fill("#chat-in", "Lance un test pour Projet Exemple")
+    page.click("form[data-chat] button")
+    page.wait_for_selector("text=Envoyé à l'Usine")
+    assert ecr[-1]["methode"] == "POST" and ecr[-1]["valeurs"][0][1] == "Lance un test pour Projet Exemple"
+    assert page.input_value("#chat-in") == ""
     assert not page.erreurs, page.erreurs
     ctx.close()
 
@@ -290,8 +301,12 @@ def test_valider_une_decision(pw, navigateur, serveur):
     ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
     google = connecter(page, serveur)
     page.evaluate("location.hash = 'decisions.2'")
-    page.click("button[data-valider]")
-    page.wait_for_selector("text=est validé")
+    page.wait_for_selector("text=L'analyse")
+    page.click("button[data-opt='1']")
+    page.wait_for_selector("text=Touchez encore pour confirmer")
+    assert google.ecritures == []  # un seul toucher n'écrit rien
+    page.click("button[data-opt='1']")
+    page.wait_for_selector("text=C'est noté")
     assert google.ecritures[-1]["plage"] == "'Décisions & Questions'!H2:I2"
     assert google.ecritures[-1]["valeurs"] == [["1", "Répondu"]]
     assert not page.erreurs, page.erreurs
@@ -311,8 +326,12 @@ def test_simulation_n_envoie_rien(pw, navigateur, serveur):
     page.wait_for_selector("text=Simulation : « Essai »")
     page.evaluate("location.hash = 'decisions'")
     page.click(".rowl >> nth=0")
-    page.click("button[data-valider]")
-    page.wait_for_selector("text=est validé")
+    page.click("button[data-opt='1']")
+    page.click("button[data-opt='1']")
+    page.wait_for_selector("text=C'est noté")
+    page.fill("#chat-in", "Où en est PDF Sans Fuite ?")
+    page.click("form[data-chat] button")
+    page.wait_for_selector("text=étape « Rentable »")
     assert appels == []
     ctx.close()
 
@@ -328,7 +347,7 @@ def test_hors_ligne(pw, navigateur, serveur):
     ctx.set_offline(True)
     page.reload()
     page.click("#view button[data-mode=sim] >> nth=0")
-    page.wait_for_selector("text=Bonjour")
+    page.wait_for_selector("text=Centre de pilotage")
     page.evaluate("location.hash = 'projets'")
     page.wait_for_selector("text=Mes projets")
     ctx.close()
@@ -362,7 +381,7 @@ def test_notification_quand_une_decision_attend(pw, navigateur, serveur):
     assert n == [{"titre": "Une décision vous attend", "texte": n[0]["texte"], "url": "/#decisions.2"}]
     assert n[0]["texte"].startswith("Valider le projet Projet Exemple")
     assert page.evaluate("window.__badges.at(-1)") == 1  # la pastille sur l'icône
-    assert page.inner_text("#tab-badge") == "1"  # et sur l'onglet Décisions
+    assert "1 décision vous attend" in page.inner_text(".verdict2")  # et sur l'accueil
 
     # relire le tableau ne réannonce pas la même décision
     page.evaluate("window.QG_GOOGLE.mcp.invalidate()")
@@ -387,43 +406,48 @@ def test_notification_quand_une_decision_attend(pw, navigateur, serveur):
     ctx.close()
 
 
-def test_valider_depuis_l_accueil_en_deux_touchers(pw, navigateur, serveur):
+def test_accueil_resume_puis_fenetre_decision(pw, navigateur, serveur):
+    """Un toucher = un niveau : l'accueil résume, la fenêtre montre tout, « Retour » ramène, décider = 2 touchers."""
     ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
     google = connecter(page, serveur)
-    page.wait_for_selector(".dcard")
-    page.click("button[data-vite='2']")
-    page.wait_for_selector("text=Toucher encore pour confirmer")
-    assert google.ecritures == []  # un seul toucher n'écrit rien
-    page.click("button[data-vite='2']")
-    page.wait_for_selector("text=est validé")
-    assert google.ecritures[-1]["plage"] == "'Décisions & Questions'!H2:I2"
+    page.wait_for_selector(".dec2")
+    assert "Valider le projet Projet Exemple" in page.inner_text(".dec2")
+    page.click("text=Ouvrir la décision")
+    page.wait_for_selector(".sheet >> text=Le coût et l'estimation")
+    page.click(".sheet .back")
+    page.wait_for_selector(".dec2")
+    page.click("text=Ouvrir la décision")
+    page.click("button[data-opt='1']")
+    assert google.ecritures == []
+    page.click("button[data-opt='1']")
+    page.wait_for_selector("text=Rien à décider")
     assert google.ecritures[-1]["valeurs"] == [["1", "Répondu"]]
-    assert page.evaluate("location.hash") in ("", "#accueil")  # on reste sur l'accueil
-    page.wait_for_selector("text=Rien à décider, tout roule")
+    assert page.evaluate("location.hash") == "#accueil"
+    assert "0 €" in page.inner_text(".money")  # Réel : un 0 € honnête
     assert not page.erreurs, page.erreurs
     ctx.close()
 
 
-def test_onglets_et_reglages(pw, navigateur, serveur):
+def test_la_machine_et_les_reglages(pw, navigateur, serveur):
     ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
     page.goto(serveur + "/")
     page.click("#view button[data-mode=sim] >> nth=0")
-    for onglet, titre in (("decisions", "Vos décisions"), ("projets", "Mes projets"), ("reglages", "Données affichées"), ("accueil", "Bonjour")):
-        page.click(f"#tabs [data-tab={onglet}]")
-        page.wait_for_selector(f"text={titre}")
-        assert page.get_attribute(f"#tabs [data-tab={onglet}]", "aria-current") == "page"
-    page.click("#tabs [data-tab=reglages]")
+    for tuile, titre in (("equipe", "Mon équipe"), ("biblio", "La Bibliothèque"), ("securite", "Tout est vert"), ("reglages", "Données affichées")):
+        page.click(f".mtile[href='#{tuile}']")
+        page.wait_for_selector(f".sheet >> text={titre}")
+        page.click(".sheet .back")
+        page.wait_for_selector(".machine")
+    page.click(".mtile[href='#reglages']")
     page.click("a[href='#demarrage']")
     page.wait_for_selector("text=Ce que vous devez faire vous-même")
-    assert page.get_attribute("#tabs [data-tab=reglages]", "aria-current") == "page"
-    page.click("#tabs [data-tab=reglages]")
+    page.click(".sheet .back")  # Retour = un niveau plus haut : Réglages
+    page.wait_for_selector("text=Données affichées")
     page.click("button[data-theme-choix=dark]")
     assert page.evaluate("document.documentElement.dataset.theme") == "dark"
     page.click("button[data-theme-choix=auto]")
     assert page.evaluate("document.documentElement.dataset.theme") is None
-    # revenir aux vraies données : depuis Réglages, ou en touchant le badge « Simulation × »
-    page.click("#simpill")
-    assert page.is_hidden("#simpill")
+    page.click(".sheet .back")
+    page.click(".toggle button[data-mode=reel]")  # revenir aux vraies données
     page.wait_for_selector("#client-id")
     assert not page.erreurs, page.erreurs
     ctx.close()
@@ -513,7 +537,7 @@ def test_captures(pw, navigateur, serveur):
         ctx, page = ouvrir(pw, navigateur, serveur, appareil)
         page.goto(serveur + "/")
         page.click("#view button[data-mode=sim] >> nth=0")
-        for h in ("accueil", "projets", "equipe", "decisions", "reglages"):
+        for h in ("accueil", "decisions.s2", "chat", "securite", "reglages"):
             page.evaluate("h => { location.hash = h; }", h)
             page.wait_for_timeout(150)
             page.screenshot(path=f"{dossier}/{appareil.replace(' ', '-')}-{h}.png")

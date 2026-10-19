@@ -13,13 +13,13 @@ FICHIERS = [p for p in APP.rglob("*") if p.is_file() and p.suffix in SUFFIXES an
             and p.name != "package-lock.json"]
 TEXTES = {str(p.relative_to(APP)): p.read_text(encoding="utf-8") for p in FICHIERS}
 APP_TEXTES = {p.name: p.read_text(encoding="utf-8") for p in PUBLIC.rglob("*") if p.is_file() and p.suffix in SUFFIXES}
-CODE = "\n".join(TEXTES.values())
+CODE = "\n".join(t for n, t in TEXTES.items() if not n.startswith("public/polices/OFL"))  # les licences des polices citent leurs auteurs, ce n'est pas du code
 
 # Les seuls services que l'app et son relais contactent (connexion) ou citent (lien).
 LISTE_BLANCHE = {
     "sheets.googleapis.com", "www.googleapis.com", "oauth2.googleapis.com", "accounts.google.com",  # Google, avec votre compte
     "web.push.apple.com", "fcm.googleapis.com", "updates.push.services.mozilla.com", "notify.windows.com",  # services de notification
-    "docs.google.com", "dash.cloudflare.com", "pages.dev",  # liens seulement
+    "docs.google.com", "myaccount.google.com", "dash.cloudflare.com", "pages.dev",  # liens seulement
 }
 
 
