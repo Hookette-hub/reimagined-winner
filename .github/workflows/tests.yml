@@ -1,0 +1,25 @@
+name: Tests Mon QG
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Relais des notifications (Node)
+        working-directory: app
+        run: npm ci && npm test
+      - name: Règles de sécurité et écrans (Playwright, iPhone 13 et Pixel 7)
+        run: |
+          pip install playwright==1.63.0 pytest==9.1.1
+          python -m playwright install --with-deps chromium
+          pytest app/tests -q

@@ -1,0 +1,11 @@
+# Mon QG sur Cloudflare Pages (gratuit). RIEN n'est mis en ligne sans le « oui » du propriétaire.
+# Dossier de l'app : app/ ; fichiers publiés : app/public ; relais des notifications : app/functions (Pages Functions).
+name = "mon-qg"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+
+# Stockage du relais (clés de notification, abonnements du téléphone). À créer au moment de la mise en ligne :
+#   Workers & Pages > KV > Create « mon-qg-relais », puis décommenter et coller son identifiant ci-dessous.
+# [[kv_namespaces]]
+# binding = "QG_RELAIS"
+# id = "…"

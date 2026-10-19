@@ -1,0 +1,12 @@
+{
+  "name": "mon-qg",
+  "private": true,
+  "type": "module",
+  "description": "Mon QG : l'app perso (PWA) et son relais de notifications.",
+  "scripts": {
+    "test": "node --test relais/tests/*.test.js"
+  },
+  "devDependencies": {
+    "http_ece": "1.2.1"
+  }
+}
