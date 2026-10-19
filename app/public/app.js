@@ -951,8 +951,24 @@ VUES.accueil = function(){
     ${prio(4, "La machine", "touchez pour entrer")}${machine()}
     ${pied()}`};
 };
+VUES.machine = function(){
+  const s = etatSecurite(), {faits} = etatMiseEnRoute(), reste = faits.filter(x => !x).length, bs = benefSerie();
+  const ligne = (href, ic, t, d, droite = "") => `<a class="rowl" href="#${href}"><span class="ic-r">${ic}</span><span class="tx"><b>${esc(t)}</b><span>${esc(d)}</span></span>${droite}<span class="go">›</span></a>`;
+  return { crumbs: [["La machine"]], html: `<div><h1>La machine</h1><p class="lead">Touchez une partie pour entrer : voir, puis agir.</p></div>
+    <div class="rows">
+      ${ligne("argent", ICON.argent, "Argent", totRev().some(v => v) ? `Bénéfice du mois : ${signe(bs[11] || 0)}` : "0 € réel : rien gagné, rien dépensé")}
+      ${ligne("equipe", ICON.equipe, "Agents", pluriel(`${M.agents.length} agent(s) · pause, améliorer, remplacer`))}
+      ${ligne("biblio", ICON.livre, "Fiches", pluriel(`${M.biblio.fiches.length} fiche(s) · ajouter une vidéo, valider`))}
+      ${ligne("securite", ICON.sante, "Sécurité", s.ok ? "Tout est vert" : pluriel(`${s.alertes.length} alerte(s)`), s.ok ? `<span class="pill good">OK</span>` : `<span class="pill bad">${s.alertes.length}</span>`)}
+      ${ligne("reglages", ICO.reglages, "Réglages", "Verrou, budget, cerveaux IA, notifications")}
+    </div>
+    <div class="rows">
+      ${ligne("usine", ICON.usine, "Les coulisses de l'Usine", "Santé, outils, calendrier, qualité")}
+      ${ligne("demarrage", ICON.pret, "Mise en route", reste ? pluriel(`${reste} étape(s) à faire vous-même`) : "Tout est fait")}
+    </div>`};
+};
 VUES.chat = function(){
-  return { crumbs: [["Parler à l'Usine"]], html: `<div><div class="kicker">Parler à l'Usine</div><h1>Vos messages et les réponses</h1><p class="lead">Posez une question, donnez un ordre (ajouter une vidéo, lancer un test). ${enSim() ? "Simulation : rien n'est envoyé." : "Le message est écrit dans « Parler à l'Usine »."}</p></div>${chatHtml(true)}`};
+  return { crumbs: [["Parler à l'Usine"]], html: `<div><h1>L'Usine</h1><p class="lead">Posez une question, donnez un ordre (ajouter une vidéo, lancer un test). ${enSim() ? "Simulation : rien n'est envoyé." : "Le message est écrit dans « Parler à l'Usine »."}</p></div>${chatHtml(true)}`};
 };
 
 /* La fenêtre Décision : voir (date, analyse, problèmes, coût, estimation, recommandation), puis décider en 2 touchers. */
@@ -980,7 +996,7 @@ VUES.decision = function(x){
   return { crumbs: cr, html: `<div><div class="kicker">${esc(CATS[x.cat] || "Décision")}</div><h1>${esc(x.titre)}</h1></div>
     ${noteEcran("dec" + x.n)}
     <div><h3 class="sec">L'analyse</h3><ul class="facts">${faits.map(f => `<li>${esc(f)}</li>`).join("")}</ul></div>
-    <details class="card rep" ${x.resumeSim || x.resumeId ? "" : "hidden"}><summary><span class="tx"><b>Le résumé d'une page</b></span>${lienDoc(x.resumeLien, "Ouvrir")}</summary><div class="body">${resumeHtml(x)}</div></details>
+    <details class="rep seul" ${x.resumeSim || x.resumeId ? "" : "hidden"}><summary><span class="tx"><b>Le résumé d'une page</b></span>${lienDoc(x.resumeLien, "Ouvrir")}</summary><div class="body">${resumeHtml(x)}</div></details>
     <div><h3 class="sec">Les problèmes</h3>${probs.length ? `<ul class="probs">${probs.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : `<p class="sub" style="margin:0">Aucun problème relevé par l'équipe.</p>`}</div>
     <div><h3 class="sec">Le coût et l'estimation</h3>${cout ? `<div class="costgrid">${cout}</div><p class="sub" style="margin:8px 0 0">Une estimation, pas un résultat : elle sera comparée aux vrais chiffres.</p>` : `<p class="sub" style="margin:0">Pas encore chiffré par la Finance.</p>`}</div>
     ${x.reco ? `<div><h3 class="sec">Ce que l'équipe recommande</h3><p class="reco2">${esc(x.reco)}</p></div>` : ""}
@@ -1120,6 +1136,7 @@ let derniereVue = "", envoye = null;
 const idsDu = f => new Set([...(f ? f.elements : [])].map(e => e.id).filter(Boolean));
 function route(garderScroll){
   if (MODE === "reel" && (!S.et || !S.pj)){
+    $("#navbar").hidden = true; document.body.classList.remove("pousse"); onglets("accueil", 0);
     $("#view").innerHTML = barre() + bandeau() + (mcp || !mcpPret ? `<p class="sub" role="status" style="margin:0">Lecture de vos vraies données dans le tableau de l'Usine…</p><div class="sk sk-h"></div><div class="sk sk-card"></div><div class="sk sk-card"></div>` : "");
     return;
   }
@@ -1143,12 +1160,18 @@ function route(garderScroll){
   if (!v){ if (h !== "accueil"){ location.hash = "accueil"; return; } return; }
   // Les données se relisent en arrière-plan : ce que le Président est en train d'écrire ne doit pas s'effacer.
   const saisies = garderScroll ? [...document.querySelectorAll("#view input[id], #view textarea[id]")].map(e => [e.id, e.value, e === document.activeElement, e.selectionStart, e.selectionEnd]) : [];
-  // L'accueil est le cockpit ; tout le reste s'ouvre comme une fenêtre, avec « Retour » (un niveau plus haut).
-  if (parts[0] === "accueil") $("#view").innerHTML = bandeau() + v.html;
-  else {
-    const parent = (v.crumbs.slice(0, -1).reverse().find(c => c[1]) || [, "accueil"])[1], titre = (v.crumbs.at(-1) || ["Mon QG"])[0];
-    $("#view").innerHTML = `<section class="sheet"><div class="sheet-head"><a class="back" href="#${esc(parent)}">‹ Retour</a><span class="sheet-tag ${enSim() ? "sim" : ""}">${enSim() ? "Simulation · " : ""}${esc(titre)}</span></div><div class="sheet-body">${bandeau()}${v.html}</div></section>`;
+  // Comme une app : les 5 onglets du bas sont des écrans racine ; tout le reste s'ouvre en plein écran,
+  // avec une barre en haut et « Retour » (là d'où l'on vient, sinon un niveau plus haut).
+  $("#view").innerHTML = bandeau() + v.html;
+  const racine = RACINES.includes(h), nav = $("#navbar");
+  nav.hidden = racine; document.body.classList.toggle("pousse", !racine);
+  if (!racine){
+    const parent = (v.crumbs.slice(0, -1).reverse().find(c => c[1]) || [, ongletDe(h)])[1];
+    nav.querySelector(".back").setAttribute("href", "#" + parent);
+    $("#nav-titre").textContent = (v.crumbs.at(-1) || ["Mon QG"])[0];
+    $("#nav-sim").hidden = !enSim();
   }
+  onglets(h, M.decisions.length);
   const vides = envoye; envoye = null; // un formulaire bien envoyé repart vide
   saisies.forEach(([id, val, actif, d, f]) => { const e = document.getElementById(id); if (!e || (vides && vides.has(id))) return; if (val && e.value !== val) e.value = val;
     if (actif){ e.focus(); try { if (d != null) e.setSelectionRange(d, f); } catch(err) {} } }); // le curseur reste où il était
@@ -1183,8 +1206,9 @@ async function action(cle, travail, ok, boutons){
 function decider(n, texte, libelle, boutons){
   const x = M.decisions.find(d => String(d.n) === String(n)); if (!x) return;
   const cle = "decisions", ok = libelle ? `C'est noté : « ${libelle} » pour « ${x.titre} ». L'équipe passe à la suite.` : "Vos corrections sont envoyées. L'équipe les fait et revient vers vous.";
-  if (enSim()){ SIMDEC.add(String(n)); notes[cle] = {t: ok}; persoV++; if (location.hash.slice(1) !== "accueil") location.hash = "accueil"; else route(true); return; }
-  action(cle, () => repondre(n, texte), ok, boutons).then(() => { if (notes[cle] && !notes[cle].cls && location.hash.slice(1) !== "accueil") location.hash = "accueil"; });
+  const retour = pile[0] || "accueil"; // revenir à l'onglet d'où l'on est parti (Accueil ou Décider)
+  if (enSim()){ SIMDEC.add(String(n)); notes[cle] = {t: ok}; persoV++; if (location.hash.slice(1) !== retour) location.hash = retour; else route(true); return; }
+  action(cle, () => repondre(n, texte), ok, boutons).then(() => { if (notes[cle] && !notes[cle].cls && location.hash.slice(1) !== retour) location.hash = retour; });
 }
 /* Une action qui compte = 2 touchers : le premier arme le bouton, le second confirme (4 secondes pour le faire). */
 function arme(b, texte){
@@ -1288,6 +1312,18 @@ function demarrer(){
 }
 let timer = 0;
 const planifier = () => { clearTimeout(timer); timer = setTimeout(() => { if (MODE === "reel") route(true); }, 60); };
+/* La barre d'onglets en bas : l'onglet de l'écran ouvert, et la pastille des décisions qui attendent. */
+const RACINES = ["accueil", "decisions", "chat", "projets", "machine"];
+function ongletDe(h){
+  const s = h.split(".")[0];
+  if (s === "decisions" || /^projets\.[^.]+\.decision$/.test(h)) return "decisions";
+  return RACINES.includes(s) ? s : "machine";
+}
+function onglets(h, n){
+  const actif = ongletDe(h);
+  document.querySelectorAll("#tabs [data-tab]").forEach(a => { const on = a.dataset.tab === actif; a.classList.toggle("on", on); on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"); });
+  const b = $("#tab-badge"); if (b){ b.hidden = !n; b.textContent = n > 9 ? "9+" : String(n || ""); }
+}
 /* « Retour » ramène là d'où l'on vient (un niveau en arrière) ; sans historique, au niveau du dessus. */
 let pile = [], enRetour = false;
 document.addEventListener("click", e => {
@@ -1296,7 +1332,8 @@ document.addEventListener("click", e => {
 }, true);
 window.addEventListener("hashchange", () => {
   const h = location.hash.slice(1) || "accueil";
-  if (h === "accueil") pile = []; else if (!enRetour && derniereVue && derniereVue !== h) pile.push(derniereVue);
+  if (RACINES.includes(h)) pile = []; // changer d'onglet repart à zéro
+  else if (!enRetour && derniereVue && derniereVue !== h) pile.push(derniereVue);
   enRetour = false; Object.keys(notes).forEach(k => { if (notes[k].t0 && Date.now() - notes[k].t0 > 1500) delete notes[k]; }); route(); });
 route();
 mcp = G.connecte() ? G.mcp : null;

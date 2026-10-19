@@ -349,6 +349,8 @@ def test_simulation_n_envoie_rien(pw, navigateur, serveur):
     page.click("button[data-opt='1']")
     page.click("button[data-opt='1']")
     page.wait_for_selector("text=C'est noté")
+    assert page.evaluate("location.hash") == "#decisions"  # on revient à l'onglet d'où l'on vient
+    page.click("#tabs [data-tab=chat]")
     page.fill("#chat-in", "Où en est PDF Sans Fuite ?")
     page.click("form[data-chat] button")
     page.wait_for_selector("text=étape « Rentable »")
@@ -433,8 +435,8 @@ def test_accueil_resume_puis_fenetre_decision(pw, navigateur, serveur):
     page.wait_for_selector(".dec2")
     assert "Valider le projet Projet Exemple" in page.inner_text(".dec2")
     page.click("text=Ouvrir la décision")
-    page.wait_for_selector(".sheet >> text=Le coût et l'estimation")
-    page.click(".sheet .back")
+    page.wait_for_selector("#view >> text=Le coût et l'estimation")
+    page.click("#navbar .back")
     page.wait_for_selector(".dec2")
     page.click("text=Ouvrir la décision")
     page.click("button[data-opt='1']")
@@ -454,19 +456,19 @@ def test_la_machine_et_les_reglages(pw, navigateur, serveur):
     page.click("#view button[data-mode=sim] >> nth=0")
     for tuile, titre in (("equipe", "Mon équipe"), ("biblio", "La Bibliothèque"), ("securite", "Tout est vert"), ("reglages", "Données affichées")):
         page.click(f".mtile[href='#{tuile}']")
-        page.wait_for_selector(f".sheet >> text={titre}")
-        page.click(".sheet .back")
+        page.wait_for_selector(f"#view >> text={titre}")
+        page.click("#navbar .back")
         page.wait_for_selector(".machine")
     page.click(".mtile[href='#reglages']")
     page.click("a[href='#demarrage']")
     page.wait_for_selector("text=Ce que vous devez faire vous-même")
-    page.click(".sheet .back")  # Retour = un niveau plus haut : Réglages
+    page.click("#navbar .back")  # Retour = un niveau plus haut : Réglages
     page.wait_for_selector("text=Données affichées")
     page.click("button[data-theme-choix=dark]")
     assert page.evaluate("document.documentElement.dataset.theme") == "dark"
     page.click("button[data-theme-choix=auto]")
     assert page.evaluate("document.documentElement.dataset.theme") is None
-    page.click(".sheet .back")
+    page.click("#navbar .back")
     page.click(".toggle button[data-mode=reel]")  # revenir aux vraies données
     page.wait_for_selector("#client-id")
     assert not page.erreurs, page.erreurs

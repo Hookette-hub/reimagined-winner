@@ -19,7 +19,15 @@
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+<header class="navbar" id="navbar" hidden><a class="back" href="#accueil" aria-label="Retour">‹ Retour</a><b class="nt" id="nav-titre"></b><span class="sheet-tag sim" id="nav-sim" hidden>Simulation</span></header>
 <main class="wrap" id="view"><div class="sk sk-h"></div><div class="sk sk-card"></div><div class="sk sk-card"></div></main>
+<nav class="tabs" id="tabs" aria-label="Menu principal">
+  <a href="#accueil" data-tab="accueil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Accueil</span></a>
+  <a href="#decisions" data-tab="decisions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span>Décider</span><b class="badge" id="tab-badge" hidden></b></a>
+  <a href="#chat" data-tab="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg><span>Usine</span></a>
+  <a href="#projets" data-tab="projets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Projets</span></a>
+  <a href="#machine" data-tab="machine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Machine</span></a>
+</nav>
 <noscript><p class="foot">Le QG a besoin de JavaScript.</p></noscript>
 <script src="/google.js"></script>
 <script src="/alertes.js"></script>
