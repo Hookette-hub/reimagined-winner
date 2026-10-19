@@ -293,6 +293,26 @@ def test_boutons_qui_ecrivent(pw, navigateur, serveur):
     page.wait_for_selector("text=Envoyé à l'Usine")
     assert ecr[-1]["methode"] == "POST" and ecr[-1]["valeurs"][0][1] == "Lance un test pour Projet Exemple"
     assert page.input_value("#chat-in") == ""
+
+    # 7. Agir : mettre un projet en pause (2 touchers), ajouter une vidéo, budget IA
+    page.evaluate("location.hash = 'projets.TEST-P900'")
+    n = len(ecr)
+    page.click("button[data-ordre^='Change, mets en pause']")
+    page.wait_for_selector("text=Touchez encore pour confirmer")
+    assert len(ecr) == n  # un seul toucher n'écrit rien
+    page.click("button[data-ordre^='Change, mets en pause']")
+    page.wait_for_selector("text=sera mis en pause")
+    assert ecr[-1]["valeurs"][0][1] == "Change, mets en pause le projet TEST-P900 (Projet Exemple)"
+    page.evaluate("location.hash = 'biblio'")
+    page.fill("#video-url", "https://www.youtube.com/watch?v=exemple")
+    page.click("form[data-video] button")
+    page.wait_for_selector("text=Vidéo envoyée")
+    assert ecr[-1]["valeurs"][0][1] == "Ajoute cette vidéo à la Bibliothèque : https://www.youtube.com/watch?v=exemple"
+    page.evaluate("location.hash = 'reglages'")
+    page.fill("#budget-jour", "2")
+    page.click("form[data-budget] button")
+    page.wait_for_selector("text=budget IA de 2,00 $ par jour")
+    assert ecr[-1]["valeurs"][0][1] == "Change le budget IA par jour : 2 $"
     assert not page.erreurs, page.erreurs
     ctx.close()
 

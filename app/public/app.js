@@ -500,7 +500,12 @@ const VUES = {
         ${tile(`projets.${p.id}.rapports`, "rapports", "Rapports", p.rapports.length ? `${p.rapports.length} rapport${p.rapports.length > 1 ? "s" : ""}${p.rapports[0].date ? " · dernier le " + fmtD(p.rapports[0].date) : ""}` : "Pas encore de rapport")}
         ${tile(`projets.${p.id}.messages`, "messages", "Parler de ce projet", p.messages.length ? `${p.messages.length} message${p.messages.length > 1 ? "s" : ""}` : "Poser une question, donner un ordre")}
         ${tile(`projets.${p.id}.livrables`, "travail", "Livrables", `${p.livrables.length} document${p.livrables.length > 1 ? "s" : ""} : étude, cahier des charges, identité…`)}
-      </div>`};
+      </div>
+      ${noteEcran("projet" + p.id)}
+      <div class="card stack"><h2>Agir sur ce projet</h2><p class="sub" style="margin:0">Deux touchers pour confirmer. Passer en réel reste votre décision : c'est une demande, l'Usine attend votre « oui ».</p>
+        <div class="agir">${p.arrete ? ordre("projet" + p.id, `Change, relance le projet ${p.id} (${p.nom})`, "Relancer", `Demande envoyée : ${p.nom} sera relancé.`)
+          : ordre("projet" + p.id, `Change, mets en pause le projet ${p.id} (${p.nom})`, "Mettre en pause", `Demande envoyée : ${p.nom} sera mis en pause au prochain passage.`)
+            + ordre("projet" + p.id, `Je demande de préparer le passage en réel du projet ${p.id} (${p.nom}). Rien ne change sans mon « oui » écrit.`, "Pousser en réel", `Demande envoyée : l'Usine prépare le passage en réel de ${p.nom} et attend votre « oui ».`)}</div></div>`};
   },
   "projet.decision"(p){ const x = p.decisions[0]; return x ? VUES.decision(x) : null; },
   "projet.plan"(p){
@@ -574,7 +579,9 @@ const VUES = {
         ${tile(`equipe.${a.id}.evolution`, "evol", "Son évolution", q != null ? `Qualité ${q} / 100` : "Qualité, tâches et coût")}
         ${tile(`equipe.${a.id}.histoire`, "rapports", "Son histoire", `${a.histoire.length} moment${a.histoire.length > 1 ? "s" : ""} marquant${a.histoire.length > 1 ? "s" : ""}`)}
         ${tile(`equipe.${a.id}.contrat`, "contrat", "Son contrat", `${MODELES[a.niveau].nom} · ${usd(c ?? 0)} ce mois`)}
-      </div>`};
+      </div>
+      ${noteEcran("agent" + a.id)}
+      <div class="card stack"><h2>Agir</h2><div class="agir">${ordre("agent" + a.id, `Change « ${a.poste} » : mettre en pause`, "Mettre en pause", `Demande envoyée : ${a.prenom} sera mis en pause au prochain passage.`)}<a class="btn" href="#equipe.${esc(a.id)}.contrat">Améliorer</a><a class="btn" href="#equipe.${esc(a.id)}.contrat">Remplacer</a></div></div>`};
   },
   "agent.travail"(a){
     const crumbs = [["Mon équipe", "equipe"], [a.service, "equipe.service-" + serviceIdx(a)], [a.prenom, "equipe." + a.id], ["Son travail"]];
@@ -621,7 +628,11 @@ const VUES = {
         ${tile("argent.projets", "projets", "Par projet", "Lequel rapporte, lequel coûte")}
         ${tile("argent.objectif", "objectif", "Mon objectif", M.argent.objectif ? M.argent.objectif : "Pas encore fixé : à vous de le choisir")}
         ${tile("argent.depenses", "rapports", "Dépenses détaillées", "IA, domaines, hébergement, outils")}
-      </div>`};
+      </div>
+      ${noteEcran("argent")}
+      <div class="card stack"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h2>Passer en réel</h2>${bloque("Bloqué : votre décision")}</div>
+        <p class="sub" style="margin:0">Aujourd'hui tout est en TEST : rien n'est publié, acheté ni dépensé. Ce bouton envoie seulement votre demande ; l'Usine prépare la liste de ce qui changerait et attend votre « oui » écrit.</p>
+        <div class="agir">${ordre("argent", "Je demande de préparer le passage en réel. Rien ne change sans mon « oui » écrit.", "Demander le passage en réel", "Demande envoyée : l'Usine prépare le passage en réel et attend votre « oui ».")}</div></div>`};
   },
   "argent.ensemble"(){
     const r = totRev(), c = totCost(), bs = benefSerie(), ia = M.argent.coutIA, Rv = sum(r), C = sum(c);
@@ -672,7 +683,10 @@ const VUES = {
         ${tile("biblio.idees", "idee", "Boîte à idées", `${M.biblio.idees.length} idée${M.biblio.idees.length > 1 ? "s" : ""} notée${M.biblio.idees.length > 1 ? "s" : ""}`)}
         ${tile("biblio.deposer", "rapports", "Déposer un document", "La Bibliothécaire l'intègre à son prochain passage")}
         ${tile("biblio.semaine", "decide", "Validées cette semaine", M.biblio.semaine.length ? `${M.biblio.semaine.length} par le Directeur général` : "Aucune par le Directeur général")}
-      </div>`};
+      </div>
+      ${noteEcran("video")}
+      <div class="card stack"><h2>Ajouter une vidéo</h2><p class="sub" style="margin:0">Collez le lien : la Bibliothécaire la regarde et propose une fiche, que vous validerez ou refuserez.</p>
+        <form class="form2" data-video="1"><input id="video-url" type="url" inputmode="url" aria-label="Lien de la vidéo" placeholder="https://…" autocomplete="off" required><button class="btn primary">Envoyer</button></form></div>`};
   },
   rayon(i){
     const [r, l] = rayonsDe()[i] || []; if (!r) return null;
@@ -697,7 +711,8 @@ const VUES = {
         <dt>Projets qui l'utilisent</dt><dd>${f.projets.length ? esc(f.projets.join(", ")) : "Aucun pour l'instant"}${f.applications ? ` · utilisée ${esc(f.applications)} fois` : ""}${f.reussite ? ` · réussite ${esc(f.reussite)}` : ""}</dd>
         <dt>Ses sources</dt><dd>${preuve}</dd>
         ${f.notes ? `<dt>À savoir</dt><dd>${esc(propre(f.notes))}</dd>` : ""}
-      </dl>${f.lien ? `<div style="margin-top:14px">${lienDoc(f.lien, "Lire la fiche")}</div>` : ""}</div>`};
+      </dl>${f.lien ? `<div style="margin-top:14px">${lienDoc(f.lien, "Lire la fiche")}</div>` : ""}</div>
+      ${/propos/i.test(f.statut) ? `<div class="card stack"><h2>Votre décision</h2><p class="sub" style="margin:0">Une proposition ne devient une règle de l'équipe qu'avec votre accord.</p><div class="agir">${ordre("fiche" + f.id, `Change, valide la fiche ${f.id}`, "Valider la stratégie", `C'est noté : « ${f.titre} » sera validée au prochain passage.`, "primary")}${ordre("fiche" + f.id, `Change, refuse la fiche ${f.id}`, "Refuser", `C'est noté : « ${f.titre} » est refusée.`, "danger")}</div></div>` : ""}`};
   },
   lacunes(){
     const l = M.biblio.lacunes;
@@ -793,6 +808,9 @@ const ICO = {
 };
 const prio = (n, t, extra = "", acc) => `<div class="plabel"><span class="rank ${acc ? "acc" : ""}">${n}</span>${t}${extra ? ` <span class="extra">· ${extra}</span>` : ""}</div>`;
 
+/* Un ordre à l'Usine en 2 touchers (écrit dans « Parler à l'Usine » ; en Simulation, rien n'est envoyé). */
+const ordre = (cle, texte, libelle, ok, cls = "") => `<button class="btn ${cls}" data-ordre="${esc(texte)}" data-cle="${esc(cle)}" data-ok="${esc(ok)}">${esc(libelle)}</button>`;
+const bloque = t => `<span class="pill warn">${esc(t)}</span>`;
 /* La barre du haut : titre, fraîcheur des données, bascule Simulation / Réel. */
 function barre(){
   const min = S.at ? Math.max(0, Math.round((Date.now() - S.at) / 60000)) : null;
@@ -1010,6 +1028,12 @@ VUES.reglages = function(){
   return { crumbs: [["Réglages"]], html: `<div><h1>Réglages</h1></div>
     ${noteEcran("reglages")}
     ${tile("demarrage", "pret", "Mise en route", reste ? `${reste} étape${reste > 1 ? "s" : ""} à faire vous-même` : "Tout est fait.")}
+    <div class="card stack"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h2>Mode</h2>${bloque("TEST · réel bloqué")}</div><p class="sub" style="margin:0">Passer en réel est votre décision : demandez-le depuis Argent.</p></div>
+    <div class="card stack"><h2>Budget IA par jour</h2><p class="sub" style="margin:0">${esc(M.argent.iaPlafond || "Pas encore fixé.")}</p>
+      <form class="form2" data-budget="1"><input id="budget-jour" inputmode="decimal" aria-label="Dollars par jour" placeholder="Dollars par jour, ex. 2"><button class="btn">Changer</button></form></div>
+    <div class="card stack"><h2>Cerveaux IA</h2><p class="sub" style="margin:0">Le modèle gratuit est le choix par défaut. Un modèle payant coûte de l'argent réel : c'est votre décision (2 touchers).</p>
+      <div class="agir">${NIV.map(k => ordre("reglages", `Change le modèle par défaut : ${k}`, `${MODELES[k].nom}${k === "gratuit" ? " (par défaut)" : ""}`, `Demande envoyée : nouveaux agents sur ${MODELES[k].nom}.`, k === "gratuit" ? "primary" : "")).join("")}</div>
+      <p class="sub" style="margin:0">${NIV.map(k => `${M.agents.filter(a => a.niveau === k).length} sur ${MODELES[k].nom}`).join(" · ")}</p></div>
     <div class="card stack"><h2>Notifications</h2><p class="sub" style="margin:0">${perm} Vous êtes prévenu de chaque nouvelle décision et de tout problème grave.</p>
       <div class="row-btns">${e.support && e.permission === "default" ? `<button class="btn primary" id="notif-activer">Activer les notifications</button>` : ""}${e.permission === "granted" ? `<button class="btn" id="notif-tester">Essayer</button>` : ""}</div>
       ${e.push ? `<div class="ligne-reglage"><span><b>Même app fermée</b><span class="sub">${e.appFermee ? "Activé sur ce téléphone." : "Après la mise en ligne et le script Google."}</span></span>${e.appFermee ? `<button class="btn" id="notif-push-stop">Arrêter</button>` : `<button class="btn" id="notif-push">Activer</button>`}</div>` : ""}</div>
@@ -1104,7 +1128,7 @@ function route(garderScroll){
   } catch(e){ console.error(e); v = {crumbs: [], html: `<div class="banner bad"><span>Cette page n'a pas pu s'afficher. Revenez à l'accueil.</span><a class="btn" href="#accueil">Accueil</a></div>`}; }
   if (!v){ if (h !== "accueil"){ location.hash = "accueil"; return; } return; }
   // Les données se relisent en arrière-plan : ce que le Président est en train d'écrire ne doit pas s'effacer.
-  const saisies = garderScroll ? [...document.querySelectorAll("#view input[id], #view textarea[id]")].map(e => [e.id, e.value, e === document.activeElement]) : [];
+  const saisies = garderScroll ? [...document.querySelectorAll("#view input[id], #view textarea[id]")].map(e => [e.id, e.value, e === document.activeElement, e.selectionStart, e.selectionEnd]) : [];
   // L'accueil est le cockpit ; tout le reste s'ouvre comme une fenêtre, avec « Retour » (un niveau plus haut).
   if (parts[0] === "accueil") $("#view").innerHTML = bandeau() + v.html;
   else {
@@ -1112,7 +1136,8 @@ function route(garderScroll){
     $("#view").innerHTML = `<section class="sheet"><div class="sheet-head"><a class="back" href="#${esc(parent)}">‹ Retour</a><span class="sheet-tag ${enSim() ? "sim" : ""}">${enSim() ? "Simulation · " : ""}${esc(titre)}</span></div><div class="sheet-body">${bandeau()}${v.html}</div></section>`;
   }
   const vides = envoye; envoye = null; // un formulaire bien envoyé repart vide
-  saisies.forEach(([id, val, actif]) => { const e = document.getElementById(id); if (!e || (vides && vides.has(id))) return; if (val && e.value !== val) e.value = val; if (actif) e.focus(); });
+  saisies.forEach(([id, val, actif, d, f]) => { const e = document.getElementById(id); if (!e || (vides && vides.has(id))) return; if (val && e.value !== val) e.value = val;
+    if (actif){ e.focus(); try { if (d != null) e.setSelectionRange(d, f); } catch(err) {} } }); // le curseur reste où il était
   const th = $("#thread") || $("#msgs"); if (th) th.scrollTop = th.scrollHeight;
   if (!garderScroll && derniereVue !== h) window.scrollTo(0, 0);
   derniereVue = h;
@@ -1170,6 +1195,9 @@ document.addEventListener("click", e => {
     G.enregistrerIdClient(v); connecter(); return; }
   if (b.id === "client-change"){ G.enregistrerIdClient(""); route(true); return; }
   if (b.dataset.opt){ if (!arme(b)) return; desarmer(b); decider(b.dataset.n, b.dataset.opt, b.querySelector("b").textContent, [...document.querySelectorAll("#view .opt")]); return; }
+  if (b.dataset.ordre){ if (!arme(b, "Touchez encore pour confirmer")) return; desarmer(b); const cle = b.dataset.cle, ok = b.dataset.ok;
+    if (enSim()){ notes[cle] = {t: "Simulation : " + ok.charAt(0).toLowerCase() + ok.slice(1)}; route(true); return; }
+    action(cle, () => envoyerMessage(b.dataset.ordre), ok, [b]); return; }
   if (b.dataset.chip){ const v = b.dataset.chip; if (v.startsWith("#")){ location.hash = v.slice(1); return; } const i = $("#chat-in"); i.value = v; i.focus(); i.setSelectionRange(v.length, v.length); return; }
   if (b.dataset.arme === "revoquer"){ if (!arme(b)) return; G.seDeconnecter(); mcp = null; unsubs.forEach(u => { try { u(); } catch(e) {} }); unsubs = []; Object.keys(RANGES).forEach(k => delete S[k]); S.err = {}; notes.connexion = {t: "Accès Google coupé sur ce téléphone. Pour retirer aussi l'autorisation, ouvrez vos autorisations Google."}; location.hash = "accueil"; route(); return; }
   if (b.id === "notif-activer"){ notif(() => QG_ALERTES.activer().then(p => { if (p !== "granted"){ const e = new Error(p); e.code = "denied"; throw e; } if (M && MODE === "reel") QG_ALERTES.verifier(M.decisions); }), "Notifications activées. Vous serez prévenu quand une décision vous attend."); return; }
@@ -1202,6 +1230,14 @@ document.addEventListener("submit", e => {
     if (enSim()){ SIMMSG.push([p.id, v]); persoV++; notes["msg" + p.id] = {t: "Message gardé dans la simulation."}; route(true); return; }
     action("msg" + p.id, () => envoyerMessage(`${v} (projet ${p.id}, ${p.nom})`), "Message envoyé. La réponse arrive au prochain passage du moteur.", btns); return; }
   if (f.dataset.fix){ const v = document.getElementById("fixt-" + f.dataset.fix).value.trim(); if (!v) return; decider(f.dataset.fix, "Demander des corrections : " + v, "", btns); return; }
+  if (f.dataset.video){ const v = $("#video-url").value.trim(); if (!/^https:\/\/\S+$/.test(v) || v.length > 500){ notes.video = {t: "Collez un lien qui commence par https://", cls: "warn"}; route(true); return; }
+    const ok = "Vidéo envoyée : la Bibliothécaire propose une fiche à son prochain passage.";
+    if (enSim()){ notes.video = {t: "Simulation : " + ok.charAt(0).toLowerCase() + ok.slice(1)}; route(true); return; }
+    action("video", () => envoyerMessage(`Ajoute cette vidéo à la Bibliothèque : ${v}`), ok, btns); return; }
+  if (f.dataset.budget){ const x = nombre($("#budget-jour").value); if (!x || x <= 0 || x > 100){ notes.reglages = {t: "Indiquez un montant en dollars par jour (entre 0 et 100).", cls: "warn"}; route(true); return; }
+    const ok = `Demande envoyée : budget IA de ${usd(x)} par jour.`;
+    if (enSim()){ notes.reglages = {t: "Simulation : " + ok.charAt(0).toLowerCase() + ok.slice(1)}; route(true); return; }
+    action("reglages", () => envoyerMessage(`Change le budget IA par jour : ${x} $`), ok, btns); return; }
   if (f.dataset.chat){ const v = $("#chat-in").value.trim().slice(0, 500); if (!v) return;
     if (enSim()){ SIMCHAT.push({qui: "me", t: v, d: "à l'instant"}, {qui: "them", t: reponseSim(v), d: "Usine · simulation"}); route(true); return; }
     action("chat", () => envoyerMessage(v), "Envoyé à l'Usine. Elle répond à son prochain passage.", btns); return; }
