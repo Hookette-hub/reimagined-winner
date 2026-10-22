@@ -282,7 +282,7 @@ def test_boutons_qui_ecrivent(pw, navigateur, serveur):
     page.click("form[data-fix] button")
     page.wait_for_selector("text=Vos corrections sont envoyées")
     assert ecr[-1]["methode"] == "PUT" and ecr[-1]["plage"] == "'Décisions & Questions'!H2:I2"
-    assert ecr[-1]["valeurs"] == [["Demander des corrections : Ajoute les prix des concurrents.", "Répondu"]]
+    assert ecr[-1]["valeurs"] == [["Demander des corrections : Ajoute les prix des concurrents.", "En attente"]]
 
     # 6. Le chat de l'accueil : un ordre écrit dans « Parler à l'Usine »
     page.evaluate("location.hash = 'accueil'")
@@ -336,7 +336,7 @@ def test_valider_une_decision(pw, navigateur, serveur):
     page.click("button[data-opt='1']")
     page.wait_for_selector("text=C'est noté")
     assert google.ecritures[-1]["plage"] == "'Décisions & Questions'!H2:I2"
-    assert google.ecritures[-1]["valeurs"] == [["1", "Répondu"]]
+    assert google.ecritures[-1]["valeurs"] == [["1", "En attente"]]
     assert not page.erreurs, page.erreurs
     ctx.close()
 
@@ -451,7 +451,7 @@ def test_accueil_resume_puis_fenetre_decision(pw, navigateur, serveur):
     assert google.ecritures == []
     page.click("button[data-opt='1']")
     page.wait_for_selector("text=Rien à décider")
-    assert google.ecritures[-1]["valeurs"] == [["1", "Répondu"]]
+    assert google.ecritures[-1]["valeurs"] == [["1", "En attente"]]
     assert page.evaluate("location.hash") == "#accueil"
     assert "0 €" in page.inner_text(".money")  # Réel : un 0 € honnête
     assert not page.erreurs, page.erreurs

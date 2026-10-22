@@ -1375,7 +1375,8 @@ async function envoyerMessage(texte){
   await mcp.invalidate(GS, "get_values").catch(() => {});
 }
 async function repondre(n, texte){
-  await mcp.callTool(GS, "update_values", {spreadsheetId: SHEET, range: `'Décisions & Questions'!H${n}:I${n}`, values: [[texte, "Répondu"]]});
+  // The Usine's Secrétariat only reads answered rows still « En attente »: it sets « Répondu » itself once the agent has it.
+  await mcp.callTool(GS, "update_values", {spreadsheetId: SHEET, range: `'Décisions & Questions'!H${n}:I${n}`, values: [[texte, "En attente"]]});
   await mcp.invalidate(GS, "get_values").catch(() => {});
 }
 const echecEnvoi = e => (e && (e.code === "server_unavailable" || e.code === "upstream_error")) ? "Pas de confirmation de Google Sheets. Actualisez la page pour vérifier si c'est arrivé avant de renvoyer." : errText(e, GS);
