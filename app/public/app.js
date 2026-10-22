@@ -29,6 +29,11 @@ const EQUIPE_DEFAUT = {
   controle_qualite:["Contrôle qualité","Nora","Opérations","Relit chaque livrable avant qu'il arrive chez vous."],
 };
 const ETAPES = ["Idée","Étude","Votre accord","Préparation","Construction","En ligne","Rentable"];
+// Les 5 phases du QG de l'Usine, posées au-dessus des étapes du moteur, avec une porte (votre décision) entre elles.
+const PHASES = [["💡","Idée","on cherche et on étudie"],["🔨","Construction","on fabrique la V1"],["🌐","Publier","la mise en ligne"],["📈","Suivi","en vie, on mesure"],["🪦","Mort","archivé, leçon gardée"]];
+const phaseDe = p => p.arrete ? 5 : p.etape <= 2 ? 1 : p.etape <= 4 ? 2 : p.etape === 5 && !/test/i.test(p.statut) ? 3 : 4;
+const phaseNom = p => PHASES[phaseDe(p) - 1][1];
+const apercuPret = p => !p.arrete && (p.etape >= 5 || /aper[cç]u/i.test(p.statut));
 const MODELES = {gratuit:{nom:"Modèle gratuit", cout:"0 $", desc:"Gratuit et rapide, parfois moins précis."},
   standard:{nom:"Sonnet", cout:"Payé à chaque tâche", desc:"Fiable, bon rapport qualité-prix."},
   expert:{nom:"Opus", cout:"Payé à chaque tâche, le plus cher", desc:"Le plus précis, pour les tâches difficiles."}};
@@ -87,8 +92,9 @@ const ICON = {
 };
 const tile = (href, ic, titre, ligne, cls = "") => `<a class="tile ${cls}" href="#${esc(href)}"><span class="ic">${ICON[ic]}</span><span class="tx"><b>${esc(titre)}</b><span>${esc(ligne)}</span></span><span class="go">›</span></a>`;
 const kpi = (k, v, cls = "") => `<div class="kpi"><div class="k">${k}</div><div class="v ${cls}">${v}</div></div>`;
-const stepsMini = (k, arr) => `<div class="steps">${ETAPES.map((_, j) => `<i class="${arr ? "" : j < k ? "done" : j === k ? "now" : ""}"></i>`).join("")}</div>`;
-const stepsBig = (k, arr) => `<div class="stepbig">${ETAPES.map((e, j) => `<div class="${arr ? "" : j < k ? "done" : j === k ? "now" : ""}"><span>${j < k && !arr ? "✓" : j + 1}</span>${e}</div>`).join("")}</div>`;
+const etatPhase = (p, j) => { const k = phaseDe(p) - 1; return p.arrete ? (j === 4 ? "now" : "") : j < k ? "done" : j === k ? "now" : ""; };
+const stepsMini = p => `<div class="steps">${PHASES.slice(0, 4).map((_, j) => `<i class="${etatPhase(p, j)}"></i>`).join("")}</div>`;
+const stepsBig = p => `<div class="stepbig">${PHASES.map((e, j) => { const c = etatPhase(p, j); return `<div class="${c}"><span>${c === "done" ? "✓" : j + 1}</span>${e[1]}</div>`; }).join("")}</div>`;
 const vide = t => `<div class="empty">${t}</div>`;
 const titreSect = t => `<div class="sub" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px">${esc(t)}</div>`;
 
@@ -298,11 +304,14 @@ function construireReel(){
       const a = parCle[f.agent]; plan.push(["done", f.date, t.charAt(0).toUpperCase() + t.slice(1).replace(/^A /, ""), a ? a.prenom + " (" + posteCourt(a.poste) + ")" : ""]);
     });
     if (val) plan.push(["done", col(val, "Date de traitement") || val.Date, "Validé par vous", ""]);
+    p.choix = {}; p.pistes = {};
+    dq.filter(r => r["Projet (ID)"] === p.id).forEach(r => { const m = /\[CHOIX:(\w+)\]\s*(.+)/.exec(r.Description || ""); if (m) p.choix[m[1]] = m[2].trim(); });
+    p.domaineFait = dq.some(r => r["Projet (ID)"] === p.id && /domaine/i.test(r.Description || "") && /achet/i.test(r["RÉPONSE DU PRÉSIDENT"] || ""));
     plan.sort((a, b) => (a[1] || "").localeCompare(b[1] || ""));
     plan.forEach(x => x[2] = x[2].replace(/^A (\S)/, (m, c) => c.toUpperCase()));
     if (p.decisions.length) plan.push(["now", "Maintenant", "À vous de décider : " + p.decisions[0].titre.toLowerCase(), ""]);
     else if (p.prochaine && !p.arrete) plan.push(["now", "En cours", propre(p.prochaine), ""]);
-    ETAPES.slice(p.etape + 1).forEach(e => plan.push(["", "Ensuite", e, ""]));
+    if (!p.arrete) PHASES.slice(phaseDe(p), 4).forEach(e => plan.push(["", "Ensuite", "Phase " + e[1], ""]));
     p.plan = plan.map(x => [x[0], /^\d{4}/.test(x[1]) ? fmtD(x[1]) : x[1], x[2], x[3]]);
   });
 
@@ -350,7 +359,8 @@ function construireReel(){
     calendrier: etR("Calendrier").map(c => ({jour: c["Détail"], date: c.Date, agents: c.Nom.split(",").map(x => x.trim()).filter(Boolean)})),
     pret: etR("Prêt pour le réel"), veille: etR("Veille concurrentielle"), alertes,
   };
-  return {mode: "reel", jour, agents, parCle, parPoste, projets, parId, decisions, fil, messages, superviseur,
+  const comptesFaits = dq.some(r => /cr[ée]er les comptes|comptes communs/i.test(r.Description || "") && /cr[ée]/i.test(r["RÉPONSE DU PRÉSIDENT"] || ""));
+  return {mode: "reel", comptesFaits, jour, agents, parCle, parPoste, projets, parId, decisions, fil, messages, superviseur,
     argent: {ia: nombre(ia["État"]), iaPlafond: ia["Détail"] || "", dep: nombre(dp["État"]), depPlafond: dp["Détail"] || "", objectif: objTxt, planDetail: plan["Détail"] || "", coutIA, depenses},
     biblio: {fiches, lacunes, idees, semaine}, usine, qgAbsent: !qg.length};
 }
@@ -399,7 +409,11 @@ function construireSim(){
     P("P004","Juste Prix Freelance","SaaS","Calculer le bon prix de sa prestation de freelance en 2 minutes.",4,"Aperçu prêt",[N,N,N,N,N,N,N,N,0,0,0,0],[N,N,N,N,N,N,N,N,0,0,0,0],[N,N,N,N,N,N,N,N,5,6,7,8],"30 inscriptions en 14 jours",
       [["done","juil.","Idée trouvée",""],["done","sept.","Validé par vous",""],["now","16 oct.","Aperçu privé terminé","Mehdi : tous les contrôles au vert"]],
       [["16 oct.","Aperçu prêt","Mehdi (Développeur)","Le site fonctionne sur ordinateur et téléphone. Il ne manque que votre accord."]], [],
-      {note: "28", scores: [["Valeur client", 4], ["Demande", 4], ["Concurrence", 2], ["Rentabilité", 4], ["Originalité", 4]], notes: "Beaucoup de calculateurs gratuits en anglais", rentab: {depart: 0, mensuel: 5, prix: 9, pm: 3, r12: 1080, b12: 1020}}),
+      {note: "28", scores: [["Valeur client", 4], ["Demande", 4], ["Concurrence", 2], ["Rentabilité", 4], ["Originalité", 4]], notes: "Beaucoup de calculateurs gratuits en anglais", rentab: {depart: 0, mensuel: 5, prix: 9, pm: 3, r12: 1080, b12: 1020},
+       choix: {domaine: "justeprix-freelance.fr", branding: "Juste Prix · « Le bon tarif en 2 minutes »"},
+       pistes: {design: [{nom: "Calme pro", style: "sobre et rassurant", couleurs: ["#0B2545", "#13A89E", "#F4F7FA"], pour: "les freelances qui veulent un outil sérieux"},
+         {nom: "Énergie", style: "vif et direct", couleurs: ["#1F1B2E", "#FF6B35", "#FFF4E8"], pour: "les débutants pressés"},
+         {nom: "Papier", style: "simple, comme une facture", couleurs: ["#2B2B2B", "#C9A227", "#FBFAF5"], pour: "ceux qui aiment le net et le lisible"}]}}),
     P("P005","Feuilles Pro Arabe","Produit numérique","Des modèles Google Sheets pour les commerçants, en arabe et en français.",2,"Étude finie",[N,N,N,N,N,N,N,N,N,N,0,0],[N,N,N,N,N,N,N,N,N,N,0,0],[N,N,N,N,N,N,N,N,N,N,2,3],"Prouver qu'il existe une vraie demande",
       [["done","sept.","Idée trouvée","Yasmine"],["now","17 oct.","Étude de marché finie","Omar : 6 concurrents, presque aucun en arabe"]],
       [["17 oct.","Résumé du projet","Omar (Chef de produit)","Des modèles de factures et de stock prêts à l'emploi pour les petits commerçants. Test proposé : 20 ventes en 30 jours, 15 € de budget."]], [],
@@ -468,7 +482,7 @@ const serviceIdx = a => services().findIndex(([s]) => s === a.service);
 const enLigne = p => p.visiteurs.some(v => v != null);
 const pasDeVisiteurs = p => p.arrete ? "Projet arrêté." : "Pas encore de visiteurs : le site n'est pas en ligne.";
 const pasDeRevenus = p => p.arrete ? "Projet arrêté." : enLigne(p) ? "Pas encore de revenus." : "Pas encore de revenus : rien n'est en vente.";
-const statutPill = p => p.decisions.length ? ["À décider","info"] : p.arrete ? [p.statut || "Arrêté","off"] : p.etape === 6 ? [p.statut,"good"] : p.etape === 5 ? [p.statut,"warn"] : [p.statut || ETAPES[p.etape],"info"];
+const statutPill = p => p.decisions.length ? ["À décider","info"] : p.arrete ? [p.statut || "Arrêté","off"] : p.etape === 6 ? [p.statut,"good"] : p.etape === 5 ? [p.statut,"warn"] : [p.statut || phaseNom(p),"info"];
 const qualiteDe = a => a.noteActuelle != null ? a.noteActuelle : dernier(a.qualite);
 const pillQualite = q => q == null ? `<span class="pill off">Pas encore noté</span>` : `<span class="pill ${q >= 85 ? "good" : q >= 75 ? "warn" : "bad"}">${q >= 85 ? "Très bien" : q >= 75 ? "Correct" : "À surveiller"}</span>`;
 // Une confirmation reste affichée sur son écran (même quand les données se relisent) jusqu'au changement d'écran.
@@ -490,12 +504,13 @@ const VUES = {
   },
   projets(){
     const list = M.projets.slice().sort((a, b) => (a.arrete - b.arrete) || (b.decisions.length - a.decisions.length) || (b.etape - a.etape));
-    return { crumbs: [["Mes projets"]], html: `<div><h1>Mes projets</h1><p class="lead">Cliquez sur un projet pour l'ouvrir.</p></div>
-      ${list.length ? `<div class="rows">${list.map(p => { const st = statutPill(p); return `
+    const ligne = p => { const st = statutPill(p); return `
         <a class="rowl" href="#projets.${esc(p.id)}" style="${p.arrete ? "opacity:.6" : ""}"><span class="avatar">${esc(p.nom[0])}</span>
-          <span class="tx"><b>${esc(p.nom)}</b><span>${esc(p.type)} · ${ETAPES[p.etape]}</span><div style="margin-top:6px;max-width:260px">${stepsMini(p.etape, p.arrete)}</div></span>
+          <span class="tx"><b>${esc(p.nom)}</b><span>${esc(p.type)} · ${esc(p.statut || ETAPES[p.etape])}</span><div style="margin-top:6px;max-width:260px">${stepsMini(p)}</div></span>
           ${p.revenus.some(v => v) ? `<span style="text-align:right">${spark(p.revenus)}${tendance(p.revenus)}</span>` : ""}
-          <span class="pill ${st[1]}">${esc(st[0])}</span><span class="go">›</span></a>`; }).join("")}</div>` : vide("Pas encore de projet : la Veille cherche des idées. Elles sont dans la Boîte à idées de la Bibliothèque.")}`};
+          <span class="pill ${st[1]}">${esc(st[0])}</span><span class="go">›</span></a>`; };
+    return { crumbs: [["Mes projets"]], html: `<div><h1>Mes projets</h1><p class="lead">Rangés par phase, comme le QG de l'Usine. Touchez un projet pour l'ouvrir.</p></div>
+      ${list.length ? PHASES.map((ph, i) => { const l = list.filter(p => phaseDe(p) === i + 1); return `${sec(`${ph[0]} Phase ${i + 1} · ${ph[1]}`, pluriel(`${l.length} projet(s)`))}${l.length ? `<div class="rows">${l.map(ligne).join("")}</div>` : `<p class="sub" style="margin:0">Aucun projet ${i === 4 ? "arrêté" : "dans cette phase"}.</p>`}`; }).join("") : vide("Pas encore de projet : la Veille cherche des idées. Elles sont dans la Boîte à idées de la Bibliothèque.")}`};
   },
   projet(p){
     const rev = sum(p.revenus), cost = sum(p.couts), now = p.plan.find(x => x[0] === "now"), st = statutPill(p), pm = p.decisions[0];
@@ -506,7 +521,8 @@ const VUES = {
     return { crumbs: [["Mes projets", "projets"], [p.nom]], html: `
       <div><div class="kicker">${esc(p.type || "Projet")}</div><h1>${esc(p.nom)}</h1><p class="lead">${esc(p.concept || p.phrase)}</p><div style="margin-top:8px"><span class="pill ${st[1]}">${esc(st[0])}</span></div></div>
       ${pm ? `<a class="card dec2" href="#projets.${esc(p.id)}.decision" style="text-decoration:none;color:inherit;display:block"><div class="meta"><span class="d"></span>À vous de décider</div><h2 class="q">${esc(pm.titre)}</h2><p class="why">Lire l'analyse et choisir en 2 touchers ›</p></a>` : ""}
-      <div>${sec("Avancement", `étape ${Math.min(p.etape + 1, ETAPES.length)} sur ${ETAPES.length}`)}${stepsBig(p.etape, p.arrete)}</div>
+      <div>${sec("Avancement", p.arrete ? "projet arrêté" : `phase ${phaseDe(p)} sur 5 · ${esc(p.statut || ETAPES[p.etape])}`)}${stepsBig(p)}</div>
+      <div>${sec("Les 5 phases", "touchez une phase pour l'ouvrir")}<div class="rows">${PHASES.map((ph, i) => menuPhase(p, i)).join("")}</div></div>
       <div class="card stack"><div>${sec("En construction")}<p style="margin:0;font-weight:600">${esc(p.arrete ? "Rien : projet arrêté." : now ? now[2] : ETAPES[p.etape])}</p></div>
         <div>${sec("Qui le fait")}<p style="margin:0">${qui ? `<a href="#equipe.${esc(qui.id)}">${esc(quiTxt)}</a>` : esc(quiTxt)}</p></div></div>
       <div>${sec("Résultat", enLigne(p) ? "chiffres mesurés" : "rien n'est encore en vente")}
@@ -530,6 +546,11 @@ const VUES = {
         <p class="hint">Deux touchers pour confirmer. Passer en réel reste votre décision : l'Usine attend votre « oui ».</p></div>
       ${chatChose("p-" + p.id, `(projet ${p.id}`, `(projet ${p.id}, ${p.nom})`, "de ce projet")}`};
   },
+  "projet.phase1"(p){ return phaseIdee(p); },
+  "projet.phase2"(p){ return phaseConstruction(p); },
+  "projet.phase3"(p){ return phasePublier(p); },
+  "projet.phase4"(p){ return phaseSuivi(p); },
+  "projet.phase5"(p){ return phaseMort(p); },
   "projet.decision"(p){ const x = p.decisions[0]; return x ? VUES.decision(x) : null; },
   "projet.plan"(p){
     const obj = p.objectif || (p.objectifs.length ? p.objectifs.filter(o => o.mois === p.objectifs[0].mois).map(o => `${o.obj} ${o.ind}`).join(", ") + ` à la fin du mois ${p.objectifs[0].mois}` : "");
@@ -957,7 +978,7 @@ function chatHtml(grand){
 }
 function reponseSim(v){
   const p = M.projets.find(x => v.includes(x.nom) || v.includes(x.id));
-  if (/o[uù] en est/i.test(v) && p){ const now = p.plan.find(x => x[0] === "now"); return `${p.nom} : étape « ${ETAPES[p.etape]} »${now ? `. En cours : ${now[2].toLowerCase()}` : ""}.`; }
+  if (/o[uù] en est/i.test(v) && p){ const now = p.plan.find(x => x[0] === "now"); return `${p.nom} : phase « ${phaseNom(p)} » (${p.statut || ETAPES[p.etape]})${now ? `. En cours : ${now[2].toLowerCase()}` : ""}.`; }
   if (/vid[ée]o|youtube|https?:/i.test(v)) return "Bien reçu : la Bibliothécaire regarde la vidéo et propose une fiche. Vous la validerez ou la refuserez dans Fiches.";
   if (/test/i.test(v)) return "Je prépare le test. Rien ne sera publié, acheté ni dépensé en vrai sans votre « oui ».";
   if (/argent|gagn|b[ée]n[ée]fice/i.test(v)) return `Bénéfice cumulé sur 12 mois : ${signe(dernier(cumul(benefSerie())) ?? 0)}.`;
@@ -983,6 +1004,113 @@ const noteAgent = a => a.noteSup && a.noteSup.emoji ? `<span class="pill np ${a.
 const sec = (t, x = "") => `<h3 class="sec">${t}${x ? ` <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:500">· ${x}</span>` : ""}</h3>`;
 const mesure = ok => ok ? `<span class="pill good">MESURÉ</span>` : `<span class="pill warn">ESTIMÉ</span>`;
 /* Qui fait l'étape en cours d'un projet. */
+/* Les 5 phases d'un projet : chacune a son écran (je vois, je contrôle, le chat du projet). */
+const ETATS_PH = {fait: ["Fait", "good"], encours: ["En cours", "info"], avenir: ["À venir", "off"], toi: ["À vous", "warn"]};
+const pillEtat = k => `<span class="pill np ${ETATS_PH[k][1]}">${ETATS_PH[k][0]}</span>`;
+function menuPhase(p, i){
+  const ph = PHASES[i], c = etatPhase(p, i), n = i + 1;
+  const dec = p.decisions.find(d => (n === 1 && d.cat === 1) || (n === 2 && d.cat === 2) || (n === 4 && d.cat === 3));
+  const k = dec ? "toi" : c === "done" ? "fait" : c === "now" ? "encours" : "avenir";
+  const ligne = n === 2 && c === "now" ? (apercuPret(p) ? "Aperçu prêt : votre Porte 2" : choixOk(p) ? "L'Usine construit le site" : "À vous d'abord : domaine, branding, logo") : n === 5 && !p.arrete ? "Seulement si le projet s'arrête" : ph[2];
+  return `<a class="rowl" href="#projets.${esc(p.id)}.phase${n}"><span class="avatar">${ph[0]}</span><span class="tx"><b>Phase ${n} · ${ph[1]}</b><span>${esc(ligne)}</span></span>${n === 5 && !p.arrete ? "" : pillEtat(k)}<span class="go">›</span></a>`;
+}
+const crPhase = (p, n) => [["Mes projets", "projets"], [p.nom, "projets." + p.id], ["Phase " + n]];
+const enTetePhase = (p, n, lead) => `<div><div class="kicker">${esc(p.nom)} · phase ${n} sur 5</div><h1>${PHASES[n - 1][0]} ${PHASES[n - 1][1]}</h1><p class="lead">${lead}</p></div>`;
+const chatProjet = p => chatChose("p-" + p.id, `(projet ${p.id}`, `(projet ${p.id}, ${p.nom})`, "de ce projet");
+const lienPorte = (p, cat, titre) => { const d = p.decisions.find(x => x.cat === cat); return d ? `<a class="card dec2" href="#projets.${esc(p.id)}.decision" style="text-decoration:none;color:inherit;display:block"><div class="meta"><span class="d"></span>${titre} · à vous de décider</div><h2 class="q">${esc(d.titre)}</h2><p class="why">Lire l'analyse et choisir en 2 touchers ›</p></a>` : ""; };
+const choixOk = p => !!(p.choix && p.choix.domaine && p.choix.branding);
+const CHOIX = {domaine: ["🌐", "Le nom de domaine", "l'adresse du site (le choisir n'est pas l'acheter)"], branding: ["🏷️", "Le branding et le logo", "logo, nom de marque, slogan, couleurs"],
+  design: ["🎨", "Le design du site", "3 pistes à regarder, vous en choisissez une"], lancement: ["📣", "La stratégie de lancement", "où et comment se faire connaître, gratuitement"]};
+function choixCarte(p, k){
+  const [em, nom, sous] = CHOIX[k], c = (p.choix || {})[k], pistes = (p.pistes || {})[k] || [], cle = "projet" + p.id;
+  const demander = (lib, cls = "") => ordre(cle, `Propose-moi des options pour ${nom.charAt(0).toLowerCase() + nom.slice(1)} du projet ${p.id} (${p.nom})`, lib, `Demande envoyée : l'Usine prépare des options pour ${nom.toLowerCase()}.`, cls);
+  let corps;
+  if (c) corps = `<div class="choisi"><b>✓ ${esc(c)}</b>${k === "domaine" ? `<span class="sub">Nom choisi. L'achat reste votre « oui », à part, dans Publier.</span>` : ""}</div><div class="agir">${demander("Changer ou revoir les options", "ghost")}</div>`;
+  else if (pistes.length) corps = pistes.map(o => `<div class="piste"><div class="pn"><b>${esc(o.nom)}</b>${(o.couleurs || []).length ? `<span class="sw">${o.couleurs.map(x => `<i style="background:${/^#[0-9a-f]{3,8}$/i.test(x) ? x : "#888"}"></i>`).join("")}</span>` : ""}</div>${o.style || o.pour ? `<span class="sub">${esc([o.style, o.pour].filter(Boolean).join(" · "))}</span>` : ""}
+      <div class="agir">${ordre(cle, `Je choisis ${nom.charAt(0).toLowerCase() + nom.slice(1)} « ${o.nom} » pour le projet ${p.id} (${p.nom})`, "Je choisis", `Choix envoyé : « ${o.nom} ». L'Usine construit avec.`, "primary")}</div></div>`).join("")
+      + `<div class="agir">${demander("Aucune, proposez autre chose", "ghost")}</div>`;
+  else corps = `<div class="agir">${demander("✨ Proposez-moi des options")}</div>`;
+  return `<div class="choix"><div class="ct"><span aria-hidden="true">${em}</span><b>${nom}</b></div><span class="sub">${sous}</span>${corps}</div>`;
+}
+function phaseIdee(p){
+  const ph = phaseDe(p), d = p.decisions.find(x => x.cat === 1), etude = p.livrables.find(l => /tude/i.test(l.genre));
+  return { crumbs: crPhase(p, 1), html: `${enTetePhase(p, 1, "La Veille trouve l'idée, le Chef de produit l'étudie, puis vous décidez à la Porte 1.")}
+    ${lienPorte(p, 1, "Porte 1 · valider l'idée")}
+    <div>${sec("Ce qui a été fait")}<div class="card stack">
+      <p style="margin:0"><b>Note de la Veille</b> : ${p.note ? esc(p.note) + "/35" : "pas encore notée"}</p>
+      ${(p.scores || []).length ? `<div class="kpis">${p.scores.map(([n, v]) => kpi(esc(n), v + "/5")).join("")}</div>` : ""}
+      ${p.notes ? `<p class="sub" style="margin:0">${esc(propre(p.notes))}</p>` : ""}</div></div>
+    <div>${sec("Porte 1")}<p style="margin:0">${d ? "Elle vous attend : ouvrez la décision ci-dessus." : ph > 1 && !p.arrete ? "✓ Passée : vous avez validé l'idée." : p.arrete ? "Le projet est arrêté." : "Pas encore : l'étude n'est pas finie."}</p></div>
+    ${etude && etude.lien ? `<div class="agir">${lienDoc(etude.lien, "Ouvrir l'étude de marché")}</div>` : ""}
+    ${chatProjet(p)}`};
+}
+function phaseConstruction(p){
+  const ok = choixOk(p), pret = apercuPret(p), ph = phaseDe(p), ap = p.livrables.find(l => /aper/i.test(l.genre) && l.lien), dec = p.decisions.find(x => x.cat === 2);
+  if (ph < 2) return { crumbs: crPhase(p, 2), html: `${enTetePhase(p, 2, "L'Usine fabrique la première version, après vos choix.")}${vide("Pas encore : cette phase commence quand vous validez l'idée à la Porte 1.")}${chatProjet(p)}` };
+  const prep = p.etape >= 4 || pret;
+  const etapes = [
+    ["Préparation", "cahier des charges, identité, mots-clés, budget du test", prep ? "fait" : "encours"],
+    ["Construction du site", ok ? "l'Usine code le site et le design à partir de vos choix : vous n'avez rien à faire, vous reviendrez valider l'aperçu" : "en attente : choisissez d'abord le domaine, le branding et le logo (étape 1 ci-dessous)", pret ? "fait" : ok && p.etape >= 4 ? "encours" : "avenir"],
+    ["10 tests automatiques", "pages, téléphone, caché de Google, aucun script externe, moins de 200 ko", pret ? "fait" : "avenir"],
+    ["Aperçu privé, puis votre Porte 2", "vous regardez le vrai site en privé, puis vous validez, ce qui veut dire publier", ph > 2 ? "fait" : pret ? "encours" : "avenir"]];
+  const faits = etapes.filter(e => e[2] === "fait").length, cur = Math.min(etapes.findIndex(e => e[2] !== "fait") + 1 || 4, 4), pct = Math.round(faits / 4 * 100);
+  const porte = pret && ph === 2 ? `<div class="card dec2"><div class="meta"><span class="d"></span>Porte 2 · votre décision vous attend</div><h2 class="q">L'aperçu du site est prêt</h2><p class="why">Regardez le vrai site, puis décidez : valider (mettre en ligne) ou demander des corrections.</p>
+      <div class="agir">${ap ? lienDoc(ap.lien, "Voir l'aperçu du site") : ""}${dec ? `<a class="btn primary" href="#projets.${esc(p.id)}.decision">Valider ou corriger (Porte 2) ›</a>` : ""}</div>
+      <p class="hint">En mode TEST, rien n'est publié en vrai : votre décision est enregistrée et le projet avance.</p></div>` : "";
+  return { crumbs: crPhase(p, 2), html: `${enTetePhase(p, 2, "L'Usine fabrique la première version. Elle part de vos choix : domaine, branding et logo d'abord, puis le design.")}
+    ${porte}
+    <div>${sec("Avancement de la construction", `étape ${cur} sur 4 · ${pct} %`)}<div class="card"><div class="barre-av" role="img" aria-label="${pct} % fait"><i style="width:${pct}%"></i></div>
+      <p class="sub" style="margin:8px 0 12px">En ce moment : <b style="color:var(--ink)">${esc(etapes[cur - 1][0])}</b></p>
+      <ul class="tl">${etapes.map(([t, x, k]) => `<li class="${k === "fait" ? "done" : k === "encours" ? "now" : ""}"><b>${t}</b> ${pillEtat(k)}<span class="sub">${x}</span></li>`).join("")}</ul></div></div>
+    <div class="zone-toi">${sec("✋ À vous · étape 1", "d'abord : domaine, branding, logo")}<p class="sub" style="margin:0">Ça se décide en premier : le développement, le design et le référencement en découlent. L'Usine vous propose de vraies options, vous en choisissez une ou vous demandez autre chose. Le nom de domaine se choisit ici ; son achat et son branchement sont dans Publier.</p>
+      ${choixCarte(p, "domaine")}${choixCarte(p, "branding")}</div>
+    <div class="zone-toi">${sec("✋ À vous · le design", "ensuite : choisissez le design du site")}<p class="sub" style="margin:0">Une fois vos choix ci-dessus faits, l'Usine construit le site et vous propose 3 pistes de design. Vous en choisissez une, vous validez l'aperçu, puis on passe directement à Publier. La stratégie de lancement est dans Publier.</p>
+      ${ok ? choixCarte(p, "design") : `<p class="sub" style="margin:0"><i>En attente de vos choix de l'étape 1.</i></p>`}</div>
+    <div class="agir"><a class="btn" href="#projets.${esc(p.id)}.phase3">Ensuite : Publier ›</a></div>
+    ${noteEcran("projet" + p.id)}
+    ${chatProjet(p)}`};
+}
+function phasePublier(p){
+  const ph = phaseDe(p), live = ph >= 3 && !p.arrete, comptes = !!M.comptesFaits, dom = !!p.domaineFait, vrai = live && comptes && dom, nomDom = (p.choix || {}).domaine;
+  const etapes = [
+    ["Valider l'aperçu", "toi", "vous regardez le vrai site en privé et vous dites « on publie » (Porte 2)", live],
+    ["Ouvrir l'hébergement", "toi1", "créer votre compte Cloudflare (gratuit), une seule fois pour tous vos projets", comptes],
+    ["Acheter le domaine", "toi", (nomDom ? `nom choisi en Construction : « ${nomDom} ». ` : "choisissez d'abord le nom en Construction. ") + "Votre argent, votre « oui »", dom],
+    ["Brancher le domaine", "usine", "l'Usine branche votre domaine au site, toute seule", vrai],
+    ["Préparer et tout vérifier", "usine", "les 10 tests, la sécurité, la page confidentialité, le plan du site", live],
+    ["Mettre en ligne", "usine", "l'Usine met le site en ligne juste après votre validation", vrai],
+    ["Surveiller, et revenir en arrière si besoin", "usine", "chaque jour : le site répond vite et en sécurité ; sinon, retour à la version d'avant", vrai]];
+  const pastille = ([, qui, , fait]) => fait ? pillEtat("fait") : qui === "usine" ? `<span class="pill np info">L'Usine le fait</span>` : `<span class="pill np warn">${qui === "toi1" ? "À vous, une fois" : "À vous"}</span>`;
+  const aVous = etapes.filter(e => e[1] !== "usine" && !e[3]);
+  return { crumbs: crPhase(p, 3), html: `${enTetePhase(p, 3, vrai ? "Le site est en ligne. Voici les étapes passées." : live ? "Le projet est marqué « en ligne » dans le test, mais l'hébergement et le domaine ne sont pas encore faits : rien n'est vraiment publié." : "L'Usine fait tout ce qu'elle peut toute seule. Voici le chemin complet, et ce qui reste à vous.")}
+    ${aVous.length ? `<div class="card stack"><b>✋ Le minimum pour vous</b><ul style="margin:0;padding-left:20px">${aVous.map(e => `<li>${esc(e[0])}${e[1] === "toi1" ? " (une seule fois)" : ""}</li>`).join("")}</ul><p class="sub" style="margin:0">Le reste, l'Usine le fait. Aucune clé de paiement ni d'hébergement n'est donnée à l'Usine.</p></div>` : ""}
+    <div>${sec("Qui fait quoi")}<div class="card"><ul class="tl">${etapes.map((e, i) => `<li class="${e[3] ? "done" : ""}"><b>${i + 1}. ${esc(e[0])}</b> ${pastille(e)}<span class="sub">${esc(e[2])}</span></li>`).join("")}</ul>
+      <p class="sub" style="margin:8px 0 0">Où vit le site : Cloudflare Pages (gratuit). Rien n'est publié ni payé sans votre « oui ».</p></div></div>
+    <div class="zone-toi">${sec("📣 À vous · se faire connaître", "une fois le site en ligne")}<p class="sub" style="margin:0">Où et comment le faire connaître, gratuitement. L'Usine propose, vous choisissez.</p>${choixCarte(p, "lancement")}</div>
+    ${noteEcran("projet" + p.id)}
+    ${chatProjet(p)}`};
+}
+function phaseSuivi(p){
+  const vis = dernier(p.visiteurs), re = dernier(p.revenus), cost = sum(p.couts), r = p.rentab;
+  return { crumbs: crPhase(p, 4), html: `${enTetePhase(p, 4, "Le site vit : l'Analyste mesure chaque semaine. Après le test, vous décidez à la Porte 3 : grandir ou arrêter.")}
+    ${lienPorte(p, 3, "Porte 3 · décision après le test")}
+    <div>${sec("Résultat", enLigne(p) ? "chiffres mesurés" : "rien n'est encore en vente")}<div class="costgrid">
+      <div><span class="cl">Visiteurs du mois ${mesure(true)}</span><span class="cv">${vis != null ? vis.toLocaleString("fr-FR") : "0"}</span></div>
+      <div><span class="cl">Revenus du mois ${mesure(true)}</span><span class="cv">${eur(re || 0)}</span></div>
+      <div><span class="cl">Dépensé depuis le début ${mesure(true)}</span><span class="cv">${eur(cost)}</span></div>
+      ${r && r.b12 != null ? `<div><span class="cl">Bénéfice sur 12 mois ${mesure(false)}</span><span class="cv">${signe(r.b12)}</span></div>` : ""}</div></div>
+    <div>${sec("Critère de réussite")}<p style="margin:0">${esc(p.objectif || "Le premier objectif du mois, fixé avant la mise en ligne.")}</p></div>
+    <div class="rows">${tile(`projets.${p.id}.evolution`, "evol", "Évolution et rentabilité", "Les courbes sur 12 mois")}${tile(`projets.${p.id}.rapports`, "rapports", "Rapports", p.rapports.length ? pluriel(`${p.rapports.length} rapport(s)`) : "Pas encore de rapport")}</div>
+    ${chatProjet(p)}`};
+}
+function phaseMort(p){
+  const lecon = p.arrete && p.rapports[0];
+  return { crumbs: crPhase(p, 5), html: `${enTetePhase(p, 5, p.arrete ? "Le projet est arrêté. La leçon est gardée dans la Bibliothèque." : "Ce projet est vivant. S'il s'arrête un jour, sa leçon sera gardée ici.")}
+    ${lecon ? `<div class="card stack"><b>${esc(lecon.titre)}</b><p style="margin:0">${esc(propre(lecon.texte || ""))}</p></div>` : ""}
+    ${p.arrete ? `<div class="agir">${ordre("projet" + p.id, `Change, relance le projet ${p.id} (${p.nom})`, "Relancer", `Demande envoyée : ${p.nom} sera relancé.`)}</div><p class="hint">Deux touchers pour confirmer.</p>` : ""}
+    ${noteEcran("projet" + p.id)}
+    ${chatProjet(p)}`};
+}
 const QUI_ETAPE = ["veille_strategie", "chef_produit", "", "chef_produit", "developpeur", "marketing", "analyste"];
 VUES.accueil = function(){
   const d = M.decisions, v = verdict2(), x = d[0];
@@ -1042,7 +1170,7 @@ VUES.decision = function(x){
     cellule("Équilibre estimé", r.pm != null ? `mois ${r.pm}` : null), cellule("Bénéfice sur 12 mois", r.b12 != null ? signe(r.b12) : null, r.r12 != null ? `pour ${eur(r.r12)} de revenus` : ""),
     cellule("Confiance de la Veille", conf != null ? conf + " %" : null)].join("") : "";
   const faits = [`Posée le ${fmtD(x.date) || "?"}${x.qui ? ` par ${propre(x.qui)}` : ""}.`];
-  if (p) faits.push(`Projet ${p.nom} : étape « ${ETAPES[p.etape]} »${p.note ? `, note de la Veille ${p.note}/35` : ""}.`);
+  if (p) faits.push(`Projet ${p.nom} : phase « ${phaseNom(p)} »${p.note ? `, note de la Veille ${p.note}/35` : ""}.`);
   if (x.cat !== 5) faits.push(x.texte);
   return { crumbs: cr, html: `<div><div class="kicker">${esc(CATS[x.cat] || "Décision")}</div><h1>${esc(x.titre)}</h1></div>
     ${noteEcran("dec" + x.n)}

@@ -409,3 +409,16 @@ html{scroll-padding-top:calc(64px + env(safe-area-inset-top,0px));scroll-padding
 .stepbig div{overflow-wrap:anywhere;min-width:0}
 @media (max-width:540px){.stepbig div{font-size:0;gap:0}.stepbig div span{font-size:12px}.stepbig .now{font-size:11px;gap:6px;white-space:nowrap}}
 .pill.np::before{display:none}
+/* Les 5 phases d'un projet : vos choix, les pistes de design, la barre d'avancement */
+.zone-toi{background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent);border-radius:16px;padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.zone-toi > h3.sec{margin-top:0!important}
+.choix{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.choix .ct{display:flex;align-items:center;gap:8px;font-size:15px}
+.choisi{display:flex;flex-direction:column;gap:2px;background:var(--good-soft);border:1px solid color-mix(in srgb,var(--good) 40%,transparent);border-radius:12px;padding:11px 13px;margin-top:4px}
+.piste{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.piste .pn{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sw{display:inline-flex;gap:4px}
+.sw i{width:18px;height:18px;border-radius:5px;border:1px solid rgba(0,0,0,.15);display:inline-block}
+.barre-av{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.barre-av i{display:block;height:100%;background:var(--good);border-radius:5px}
+.tl .pill{vertical-align:middle;margin-left:4px}

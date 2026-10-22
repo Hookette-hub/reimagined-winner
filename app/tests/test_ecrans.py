@@ -361,7 +361,7 @@ def test_simulation_n_envoie_rien(pw, navigateur, serveur):
     page.click("#tabs [data-tab=chat]")
     page.fill("#chat-in", "Où en est PDF Sans Fuite ?")
     page.click("form[data-chat] button")
-    page.wait_for_selector("text=étape « Rentable »")
+    page.wait_for_selector("text=phase « Suivi »")
     assert appels == []
     ctx.close()
 
@@ -506,7 +506,7 @@ def test_projet_bibliotheque_agents_en_detail(pw, navigateur, serveur):
         assert mot.lower() in texte.lower(), mot
     page.fill("#cm", "Où en est PDF Sans Fuite ?")
     page.click("form[data-sujet] button")
-    page.wait_for_selector("#thread >> text=étape « Rentable »")
+    page.wait_for_selector("#thread >> text=phase « Suivi »")
     page.evaluate("location.hash = 'biblio'")
     texte = page.inner_text("#view")
     for mot in ("La porte", "L'aile manuelle", "L'aile système", "🟢", "Ajouter une vidéo"):
@@ -520,6 +520,44 @@ def test_projet_bibliotheque_agents_en_detail(pw, navigateur, serveur):
     texte = page.inner_text("#view")
     for mot in ("Son métier", "Avancement", "Sa note", "🟡", "Mettre en pause", "Parler avec Sami"):
         assert mot.lower() in texte.lower(), mot
+    assert not page.erreurs, page.erreurs
+    ctx.close()
+
+
+def test_projet_en_5_phases(pw, navigateur, serveur):
+    """Le QG d'un projet : les 5 phases ; Construction = vos choix d'abord, puis 3 pistes de design ; le lancement est dans Publier."""
+    ctx, page = ouvrir(pw, navigateur, serveur, "iPhone 13")
+    page.goto(serveur + "/")
+    page.click("#view button[data-mode=sim] >> nth=0")
+    page.click("#tabs [data-tab=projets]")
+    page.wait_for_selector("#view >> text=Rangés par phase")
+    texte = page.inner_text("#view")
+    for mot in ("Phase 1 · Idée", "Phase 2 · Construction", "Phase 3 · Publier", "Phase 4 · Suivi", "Phase 5 · Mort"):
+        assert mot.lower() in texte.lower(), mot
+    page.click("text=Juste Prix Freelance")
+    page.wait_for_selector("#view >> text=Les 5 phases")
+    page.click("#view a[href='#projets.P004.phase2']")
+    page.wait_for_selector("#view >> text=Avancement de la construction")
+    texte = page.inner_text("#view")
+    for mot in ("Porte 2", "L'aperçu du site est prêt", "étape 1", "domaine, branding, logo", "justeprix-freelance.fr",
+                "le design", "3 pistes de design", "Calme pro", "Énergie", "Papier"):
+        assert mot.lower() in texte.lower(), mot
+    assert "se faire connaître" not in texte.lower()  # la stratégie de lancement se choisit dans Publier
+    assert "étape 2" not in texte.lower()
+    b = "#view button[data-ordre*='« Calme pro »']"
+    page.click(b)
+    page.click(b)
+    page.wait_for_selector("text=Choix envoyé")
+    page.click("#navbar .back")
+    page.wait_for_selector("#view >> text=Les 5 phases")
+    page.evaluate("location.hash = 'projets.P004.phase3'")
+    page.wait_for_selector("#view >> text=La stratégie de lancement")
+    texte = page.inner_text("#view")
+    for mot in ("Acheter le domaine", "justeprix-freelance.fr", "L'Usine le fait", "Le minimum pour vous"):
+        assert mot.lower() in texte.lower(), mot
+    for n in (1, 4, 5):
+        page.evaluate("n => { location.hash = 'projets.P004.phase' + n; }", n)
+        page.wait_for_selector(f"#view >> text=phase {n} sur 5")
     assert not page.erreurs, page.erreurs
     ctx.close()
 
@@ -631,7 +669,7 @@ def test_captures(pw, navigateur, serveur):
         ctx, page = ouvrir(pw, navigateur, serveur, appareil)
         page.goto(serveur + "/")
         page.click("#view button[data-mode=sim] >> nth=0")
-        for h in ("accueil", "decisions.s2", "chat", "securite", "reglages"):
+        for h in ("accueil", "decisions.s2", "chat", "securite", "reglages", "projets", "projets.P004", "projets.P004.phase2", "projets.P004.phase3"):
             page.evaluate("h => { location.hash = h; }", h)
             page.wait_for_timeout(150)
             page.screenshot(path=f"{dossier}/{appareil.replace(' ', '-')}-{h}.png")

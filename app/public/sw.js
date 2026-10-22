@@ -1,7 +1,7 @@
 /* Service worker de Mon QG : l'app s'ouvre même sans réseau, et affiche les notifications.
  * Il ne met en cache QUE les fichiers de l'app (même origine). Les appels à Google (données, connexion)
  * ne passent jamais par ce cache : ils vont directement au réseau. */
-const VERSION = "mon-qg-v5";
+const VERSION = "mon-qg-v6";
 const FICHIERS = ["/", "/index.html", "/styles.css", "/google.js", "/app.js", "/alertes.js", "/verrou.js", "/installer.js", "/manifest.webmanifest",
   "/icones/icone.svg", "/icones/icone-180.png", "/icones/icone-192.png", "/icones/icone-512.png", "/icones/icone-masquable-512.png",
   "/polices/bricolage.woff2", "/polices/plex-sans.woff2", "/polices/plex-mono-500.woff2", "/polices/plex-mono-600.woff2"];
