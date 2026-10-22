@@ -537,13 +537,13 @@ def test_projet_en_5_phases(pw, navigateur, serveur):
     page.click("text=Juste Prix Freelance")
     page.wait_for_selector("#view >> text=Les 5 phases")
     page.click("#view a[href='#projets.P004.phase2']")
-    page.wait_for_selector("#view >> text=Avancement de la construction")
+    page.wait_for_selector("#view >> text=Deux choix à vous")
     texte = page.inner_text("#view")
-    for mot in ("Porte 2", "L'aperçu du site est prêt", "étape 1", "domaine, branding, logo", "justeprix-freelance.fr",
-                "le design", "3 pistes de design", "Calme pro", "Énergie", "Papier"):
+    for mot in ("étape 1", "domaine, branding et logo", "justeprix-freelance.fr",
+                "étape 2", "3 exemples de design", "Calme pro", "Énergie", "Papier", "Ensuite : Publier"):
         assert mot.lower() in texte.lower(), mot
     assert "se faire connaître" not in texte.lower()  # la stratégie de lancement se choisit dans Publier
-    assert "étape 2" not in texte.lower()
+    assert "avancement de la construction" not in texte.lower() and "préparation" not in texte.lower()
     b = "#view button[data-ordre*='« Calme pro »']"
     page.click(b)
     page.click(b)

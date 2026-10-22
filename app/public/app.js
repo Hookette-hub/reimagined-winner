@@ -33,7 +33,6 @@ const ETAPES = ["Idée","Étude","Votre accord","Préparation","Construction","E
 const PHASES = [["💡","Idée","on cherche et on étudie"],["🔨","Construction","on fabrique la V1"],["🌐","Publier","la mise en ligne"],["📈","Suivi","en vie, on mesure"],["🪦","Mort","archivé, leçon gardée"]];
 const phaseDe = p => p.arrete ? 5 : p.etape <= 2 ? 1 : p.etape <= 4 ? 2 : p.etape === 5 && !/test/i.test(p.statut) ? 3 : 4;
 const phaseNom = p => PHASES[phaseDe(p) - 1][1];
-const apercuPret = p => !p.arrete && (p.etape >= 5 || /aper[cç]u/i.test(p.statut));
 const MODELES = {gratuit:{nom:"Modèle gratuit", cout:"0 $", desc:"Gratuit et rapide, parfois moins précis."},
   standard:{nom:"Sonnet", cout:"Payé à chaque tâche", desc:"Fiable, bon rapport qualité-prix."},
   expert:{nom:"Opus", cout:"Payé à chaque tâche, le plus cher", desc:"Le plus précis, pour les tâches difficiles."}};
@@ -1011,7 +1010,7 @@ function menuPhase(p, i){
   const ph = PHASES[i], c = etatPhase(p, i), n = i + 1;
   const dec = p.decisions.find(d => (n === 1 && d.cat === 1) || (n === 2 && d.cat === 2) || (n === 4 && d.cat === 3));
   const k = dec ? "toi" : c === "done" ? "fait" : c === "now" ? "encours" : "avenir";
-  const ligne = n === 2 && c === "now" ? (apercuPret(p) ? "Aperçu prêt : votre Porte 2" : choixOk(p) ? "L'Usine construit le site" : "À vous d'abord : domaine, branding, logo") : n === 5 && !p.arrete ? "Seulement si le projet s'arrête" : ph[2];
+  const ligne = n === 2 && c === "now" ? (!choixOk(p) ? "À vous : domaine, branding et logo" : (p.choix || {}).design ? "Design choisi : à valider pour Publier" : "À vous : choisir 1 des 3 designs") : n === 5 && !p.arrete ? "Seulement si le projet s'arrête" : ph[2];
   return `<a class="rowl" href="#projets.${esc(p.id)}.phase${n}"><span class="avatar">${ph[0]}</span><span class="tx"><b>Phase ${n} · ${ph[1]}</b><span>${esc(ligne)}</span></span>${n === 5 && !p.arrete ? "" : pillEtat(k)}<span class="go">›</span></a>`;
 }
 const crPhase = (p, n) => [["Mes projets", "projets"], [p.nom, "projets." + p.id], ["Phase " + n]];
@@ -1019,8 +1018,8 @@ const enTetePhase = (p, n, lead) => `<div><div class="kicker">${esc(p.nom)} · p
 const chatProjet = p => chatChose("p-" + p.id, `(projet ${p.id}`, `(projet ${p.id}, ${p.nom})`, "de ce projet");
 const lienPorte = (p, cat, titre) => { const d = p.decisions.find(x => x.cat === cat); return d ? `<a class="card dec2" href="#projets.${esc(p.id)}.decision" style="text-decoration:none;color:inherit;display:block"><div class="meta"><span class="d"></span>${titre} · à vous de décider</div><h2 class="q">${esc(d.titre)}</h2><p class="why">Lire l'analyse et choisir en 2 touchers ›</p></a>` : ""; };
 const choixOk = p => !!(p.choix && p.choix.domaine && p.choix.branding);
-const CHOIX = {domaine: ["🌐", "Le nom de domaine", "l'adresse du site (le choisir n'est pas l'acheter)"], branding: ["🏷️", "Le branding et le logo", "logo, nom de marque, slogan, couleurs"],
-  design: ["🎨", "Le design du site", "3 pistes à regarder, vous en choisissez une"], lancement: ["📣", "La stratégie de lancement", "où et comment se faire connaître, gratuitement"]};
+const CHOIX = {domaine: ["🌐", "Le nom de domaine", "3 exemples d'adresse (le choisir n'est pas l'acheter)"], branding: ["🏷️", "Le branding et le logo", "3 exemples : nom de marque, logo, slogan, couleurs"],
+  design: ["🎨", "Le design du site", "3 exemples à regarder, vous en choisissez un"], lancement: ["📣", "La stratégie de lancement", "où et comment se faire connaître, gratuitement"]};
 function choixCarte(p, k){
   const [em, nom, sous] = CHOIX[k], c = (p.choix || {})[k], pistes = (p.pistes || {})[k] || [], cle = "projet" + p.id;
   const demander = (lib, cls = "") => ordre(cle, `Propose-moi des options pour ${nom.charAt(0).toLowerCase() + nom.slice(1)} du projet ${p.id} (${p.nom})`, lib, `Demande envoyée : l'Usine prépare des options pour ${nom.toLowerCase()}.`, cls);
@@ -1045,35 +1044,29 @@ function phaseIdee(p){
     ${chatProjet(p)}`};
 }
 function phaseConstruction(p){
-  const ok = choixOk(p), pret = apercuPret(p), ph = phaseDe(p), ap = p.livrables.find(l => /aper/i.test(l.genre) && l.lien), dec = p.decisions.find(x => x.cat === 2);
-  if (ph < 2) return { crumbs: crPhase(p, 2), html: `${enTetePhase(p, 2, "L'Usine fabrique la première version, après vos choix.")}${vide("Pas encore : cette phase commence quand vous validez l'idée à la Porte 1.")}${chatProjet(p)}` };
-  const prep = p.etape >= 4 || pret;
+  const ok = choixOk(p), ch = p.choix || {}, ph = phaseDe(p), ap = p.livrables.find(l => /aper/i.test(l.genre) && l.lien), dec = p.decisions.find(x => x.cat === 2);
+  if (ph < 2) return { crumbs: crPhase(p, 2), html: `${enTetePhase(p, 2, "L'Usine fabrique la première version, à partir de vos choix.")}${vide("Pas encore : cette phase commence quand vous validez l'idée à la Porte 1.")}${chatProjet(p)}` };
+  // Deux choix à vous, puis Publier : 1) domaine, branding et logo ; 2) un des 3 exemples de design, validé = phase 3.
   const etapes = [
-    ["Préparation", "cahier des charges, identité, mots-clés, budget du test", prep ? "fait" : "encours"],
-    ["Construction du site", ok ? "l'Usine code le site et le design à partir de vos choix : vous n'avez rien à faire, vous reviendrez valider l'aperçu" : "en attente : choisissez d'abord le domaine, le branding et le logo (étape 1 ci-dessous)", pret ? "fait" : ok && p.etape >= 4 ? "encours" : "avenir"],
-    ["10 tests automatiques", "pages, téléphone, caché de Google, aucun script externe, moins de 200 ko", pret ? "fait" : "avenir"],
-    ["Aperçu privé, puis votre Porte 2", "vous regardez le vrai site en privé, puis vous validez, ce qui veut dire publier", ph > 2 ? "fait" : pret ? "encours" : "avenir"]];
-  const faits = etapes.filter(e => e[2] === "fait").length, cur = Math.min(etapes.findIndex(e => e[2] !== "fait") + 1 || 4, 4), pct = Math.round(faits / 4 * 100);
-  const porte = pret && ph === 2 ? `<div class="card dec2"><div class="meta"><span class="d"></span>Porte 2 · votre décision vous attend</div><h2 class="q">L'aperçu du site est prêt</h2><p class="why">Regardez le vrai site, puis décidez : valider (mettre en ligne) ou demander des corrections.</p>
-      <div class="agir">${ap ? lienDoc(ap.lien, "Voir l'aperçu du site") : ""}${dec ? `<a class="btn primary" href="#projets.${esc(p.id)}.decision">Valider ou corriger (Porte 2) ›</a>` : ""}</div>
-      <p class="hint">En mode TEST, rien n'est publié en vrai : votre décision est enregistrée et le projet avance.</p></div>` : "";
-  return { crumbs: crPhase(p, 2), html: `${enTetePhase(p, 2, "L'Usine fabrique la première version. Elle part de vos choix : domaine, branding et logo d'abord, puis le design.")}
-    ${porte}
-    <div>${sec("Avancement de la construction", `étape ${cur} sur 4 · ${pct} %`)}<div class="card"><div class="barre-av" role="img" aria-label="${pct} % fait"><i style="width:${pct}%"></i></div>
-      <p class="sub" style="margin:8px 0 12px">En ce moment : <b style="color:var(--ink)">${esc(etapes[cur - 1][0])}</b></p>
-      <ul class="tl">${etapes.map(([t, x, k]) => `<li class="${k === "fait" ? "done" : k === "encours" ? "now" : ""}"><b>${t}</b> ${pillEtat(k)}<span class="sub">${x}</span></li>`).join("")}</ul></div></div>
-    <div class="zone-toi">${sec("✋ À vous · étape 1", "d'abord : domaine, branding, logo")}<p class="sub" style="margin:0">Ça se décide en premier : le développement, le design et le référencement en découlent. L'Usine vous propose de vraies options, vous en choisissez une ou vous demandez autre chose. Le nom de domaine se choisit ici ; son achat et son branchement sont dans Publier.</p>
+    ["Vos choix : domaine, branding et logo", "l'Usine vous propose 3 exemples de chaque ; vous validez les vôtres", ok ? "fait" : "toi"],
+    ["Le design : 3 exemples du site", "l'Usine construit le site et vous montre 3 exemples ; vous en choisissez un et vous validez", !ok ? "avenir" : ch.design || ph > 2 ? "fait" : "toi"],
+    ["Ensuite : Publier", "la mise en ligne, l'achat du domaine et la stratégie de lancement", ph > 2 ? "fait" : "avenir"]];
+  const valider = ok && ch.design && ph === 2 ? `<div class="card dec2"><div class="meta"><span class="d"></span>Porte 2 · votre décision</div><h2 class="q">Je valide ce design : on passe à Publier</h2><p class="why">Design choisi : ${esc(ch.design)}.</p>
+      <div class="agir">${ap ? lienDoc(ap.lien, "Voir le site construit") : ""}${dec ? `<a class="btn primary" href="#projets.${esc(p.id)}.decision">Je valide, ou je demande des corrections ›</a>` : ""}</div>
+      <p class="hint">${dec ? "" : "L'Usine pose la question de validation à son prochain passage. "}En mode TEST, rien n'est publié en vrai.</p></div>` : "";
+  return { crumbs: crPhase(p, 2), html: `${enTetePhase(p, 2, "Deux choix à vous, et c'est tout. Dès que vous validez le design, le projet passe en phase 3, Publier.")}
+    <div class="card"><ul class="tl">${etapes.map(([t, x, k], i) => `<li class="${k === "fait" ? "done" : k === "toi" ? "now" : ""}"><b>${i + 1}. ${t}</b> ${pillEtat(k)}<span class="sub">${x}</span></li>`).join("")}</ul></div>
+    <div class="zone-toi">${sec("✋ À vous · étape 1", "domaine, branding et logo")}<p class="sub" style="margin:0">L'Usine vous propose 3 exemples de chaque. Vous en validez un ou vous demandez autre chose. Le nom se choisit ici ; son achat est dans Publier.</p>
       ${choixCarte(p, "domaine")}${choixCarte(p, "branding")}</div>
-    <div class="zone-toi">${sec("✋ À vous · le design", "ensuite : choisissez le design du site")}<p class="sub" style="margin:0">Une fois vos choix ci-dessus faits, l'Usine construit le site et vous propose 3 pistes de design. Vous en choisissez une, vous validez l'aperçu, puis on passe directement à Publier. La stratégie de lancement est dans Publier.</p>
-      ${ok ? choixCarte(p, "design") : `<p class="sub" style="margin:0"><i>En attente de vos choix de l'étape 1.</i></p>`}</div>
-    <div class="agir"><a class="btn" href="#projets.${esc(p.id)}.phase3">Ensuite : Publier ›</a></div>
+    <div class="zone-toi">${sec("✋ À vous · étape 2", "le design du site")}${ok ? `<p class="sub" style="margin:0">L'Usine construit le site avec vos choix et vous propose 3 exemples de design. Vous en choisissez un, vous validez, et on passe directement à Publier.</p>${choixCarte(p, "design")}` : `<p class="sub" style="margin:0"><i>Validez d'abord votre domaine et votre branding (étape 1) : l'Usine construit le site à partir de vos choix, puis vous montre 3 exemples ici.</i></p>`}</div>
+    ${valider}
     ${noteEcran("projet" + p.id)}
     ${chatProjet(p)}`};
 }
 function phasePublier(p){
   const ph = phaseDe(p), live = ph >= 3 && !p.arrete, comptes = !!M.comptesFaits, dom = !!p.domaineFait, vrai = live && comptes && dom, nomDom = (p.choix || {}).domaine;
   const etapes = [
-    ["Valider l'aperçu", "toi", "vous regardez le vrai site en privé et vous dites « on publie » (Porte 2)", live],
+    ["Valider le design", "toi", "en Construction, vous choisissez un des 3 exemples et vous validez : le projet passe ici (Porte 2)", live],
     ["Ouvrir l'hébergement", "toi1", "créer votre compte Cloudflare (gratuit), une seule fois pour tous vos projets", comptes],
     ["Acheter le domaine", "toi", (nomDom ? `nom choisi en Construction : « ${nomDom} ». ` : "choisissez d'abord le nom en Construction. ") + "Votre argent, votre « oui »", dom],
     ["Brancher le domaine", "usine", "l'Usine branche votre domaine au site, toute seule", vrai],
